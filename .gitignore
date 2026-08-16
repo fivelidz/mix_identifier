@@ -1,0 +1,39 @@
+# Rust
+/target
+crates/*/target
+**/*.rs.bk
+
+# Tauri / Android app build artifacts
+app/src-tauri/target
+app/src-tauri/gen/android/app/build
+app/src-tauri/gen/android/.gradle
+app/src-tauri/gen/android/build
+app/src-tauri/gen/android/local.properties
+app/src-tauri/gen/android/.idea
+*.apk
+*.aab
+*.keystore
+app/scripts/watch_build.log
+
+# Databases (regenerable from audio)
+*.db
+*.db-shm
+*.db-wal
+
+# Test audio — synthetic files regenerable via scripts/make_test_audio.py;
+# real/ contains copyrighted music and must never leave this machine
+test_data/**/*.wav
+test_data/**/*.mp3
+test_data/real/
+uploads/
+
+# Python
+__pycache__/
+*.pyc
+.ruff_cache/
+
+# opencode/qalcode session state
+.opencode/
+
+# OS
+.DS_Store

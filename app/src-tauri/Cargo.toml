@@ -1,0 +1,37 @@
+[package]
+name = "mixid-app"
+version = "0.1.0"
+description = "MixID — Shazam for DJ mixes"
+authors = ["fivelidz"]
+edition = "2021"
+rust-version = "1.77"
+
+# Detached from the parent mix_identifier workspace — this app builds its own
+# workspace so the Android toolchain never touches the root Cargo.toml.
+[workspace]
+
+# `_lib` suffix avoids a name clash with the binary on Windows; matches the
+# tauri v2 convention (staticlib/cdylib are required for Android).
+[lib]
+name = "mixid_app_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+anyhow = "1"
+# Real engine crate (built in parallel). If it does not exist yet, builds fail
+# with "failed to load source for dependency" — either wait for it, or
+# temporarily point at the type-compatible stub: { path = "/tmp/mixid-core-stub" }
+mixid-core = { path = "../../crates/mixid-core" }
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true

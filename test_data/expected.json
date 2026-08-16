@@ -1,0 +1,22 @@
+[
+  {
+    "file": "songA.wav",
+    "start": 0.0,
+    "end": 40.0
+  },
+  {
+    "file": "songB.wav",
+    "start": 35.0,
+    "end": 75.0
+  },
+  {
+    "file": "songC.wav",
+    "start": 70.0,
+    "end": 110.0
+  },
+  {
+    "file": "songD.wav",
+    "start": 105.0,
+    "end": 140.0
+  }
+]

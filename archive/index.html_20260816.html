@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mixid — identify tracks in DJ mixes</title>
+<style>
+  :root{
+    --bg:#0e1116; --card:#151a21; --card2:#181e27; --border:#23272e;
+    --text:#e6e9ef; --muted:#8b93a1; --accent:#ff5500; --accent-h:#ff7a33;
+    --green:#22c55e; --amber:#f59e0b; --red:#ef4444;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:var(--bg); color:var(--text); min-height:100vh;
+    font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  header{
+    position:sticky; top:0; z-index:5; background:rgba(14,17,22,.92); backdrop-filter:blur(6px);
+    border-bottom:1px solid var(--border);
+  }
+  .brand{
+    display:flex; align-items:center; gap:10px; padding:16px 24px 0;
+    font-size:20px; font-weight:700; letter-spacing:.5px;
+  }
+  .brand .dot{width:12px;height:12px;border-radius:50%;background:var(--accent);
+    box-shadow:0 0 10px rgba(255,85,0,.7)}
+  .brand .tag{font-size:12px;font-weight:400;color:var(--muted);letter-spacing:0}
+  nav{display:flex;gap:28px;padding:10px 24px 0}
+  .tab{
+    background:none;border:none;color:var(--muted);font:inherit;font-weight:600;
+    padding:10px 2px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;
+    transition:color .15s,border-color .15s;
+  }
+  .tab:hover{color:var(--text)}
+  .tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+  main{max-width:880px;margin:0 auto;padding:28px 20px 60px}
+  .panel{display:none}
+  .panel.active{display:block}
+
+  .card{
+    background:var(--card);border:1px solid var(--border);border-radius:14px;
+    padding:22px;margin-bottom:18px;
+  }
+  .muted{color:var(--muted)} .small{font-size:12.5px}
+  .empty{color:var(--muted);padding:22px 8px;text-align:center}
+
+  /* inputs & buttons */
+  input[type=text]{
+    width:100%;background:var(--bg);border:1px solid var(--border);border-radius:9px;
+    color:var(--text);padding:10px 13px;font:inherit;transition:border-color .15s;
+  }
+  input[type=text]::placeholder{color:#5b6270}
+  input[type=text]:focus{outline:none;border-color:var(--accent)}
+  button.primary{
+    background:var(--accent);color:#160d07;border:none;border-radius:9px;
+    padding:11px 20px;font:inherit;font-weight:700;cursor:pointer;transition:background .15s;
+  }
+  button.primary:hover{background:var(--accent-h)}
+  button.primary:disabled{opacity:.45;cursor:default}
+  button.ghost{
+    background:none;border:1px solid var(--border);border-radius:9px;color:var(--muted);
+    padding:8px 14px;font:inherit;font-weight:600;cursor:pointer;margin-bottom:14px;
+    transition:color .15s,border-color .15s;
+  }
+  button.ghost:hover{color:var(--text);border-color:var(--accent)}
+
+  /* analyze */
+  .dropzone{
+    border:2px dashed var(--border);border-radius:12px;padding:34px 16px;text-align:center;
+    cursor:pointer;color:var(--muted);transition:border-color .15s,background .15s;
+  }
+  .dropzone:hover,.dropzone.dragover{border-color:var(--accent);background:rgba(255,85,0,.05);color:var(--text)}
+  .dz-icon{margin:0 auto 10px;width:40px;height:40px;border-radius:50%;
+    border:2px solid var(--border);display:flex;align-items:center;justify-content:center}
+  .dropzone:hover .dz-icon,.dropzone.dragover .dz-icon{border-color:var(--accent)}
+  .dz-file{margin-top:10px;color:var(--accent);font-weight:600;word-break:break-all}
+  .or{display:flex;align-items:center;gap:12px;color:var(--muted);font-size:12px;margin:16px 0}
+  .or::before,.or::after{content:"";flex:1;height:1px;background:var(--border)}
+  .pathrow{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+  @media(max-width:640px){.pathrow{grid-template-columns:1fr}}
+  .status{margin-top:14px;color:var(--muted);min-height:22px}
+  .status.err{color:var(--red)}
+
+  .spin{
+    display:inline-block;width:16px;height:16px;border-radius:50%;
+    border:2px solid var(--border);border-top-color:var(--accent);
+    vertical-align:-3px;margin-right:8px;animation:spin .8s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* tracklist rows */
+  .tracks{margin-top:14px;border-top:1px solid var(--border)}
+  .trow{
+    display:flex;align-items:center;gap:14px;padding:10px 6px;
+    border-bottom:1px solid var(--border);border-radius:6px;transition:background .12s;
+  }
+  .trow:hover{background:rgba(255,255,255,.025)}
+  .tstart{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--muted);font-size:13px;min-width:48px}
+  .tmain{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .tmain .artist{color:var(--muted)}
+  .conf{display:flex;align-items:center;gap:8px}
+  .bar{width:86px;height:6px;border-radius:3px;background:var(--border);overflow:hidden;display:inline-block}
+  .bar i{display:block;height:100%;border-radius:3px}
+  .bar i.green{background:var(--green)} .bar i.amber{background:var(--amber)} .bar i.red{background:var(--red)}
+  .cval{font-size:12px;color:var(--muted);font-family:ui-monospace,Menlo,monospace;min-width:30px;text-align:right}
+
+  .mixhead{display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .mixtitle{font-size:18px;font-weight:700;word-break:break-word}
+
+  /* search */
+  .srow{border:1px solid var(--border);border-radius:11px;margin-top:10px;background:var(--card);
+    transition:border-color .15s}
+  .srow:hover{border-color:#39414d}
+  .srow.open{border-color:rgba(255,85,0,.5)}
+  .shead{display:flex;align-items:center;gap:12px;padding:12px 14px;cursor:pointer;user-select:none}
+  .shead .tmain{flex:1}
+  .badge{font-size:11.5px;font-weight:700;color:var(--accent);background:rgba(255,85,0,.1);
+    border-radius:20px;padding:2px 10px;white-space:nowrap}
+  .chev{color:var(--muted);transition:transform .15s}
+  .srow.open .chev{transform:rotate(180deg)}
+  .sbody{padding:2px 14px 12px 44px;border-top:1px solid var(--border)}
+  .mixline{padding:7px 0;color:var(--muted);border-bottom:1px dashed var(--border);font-size:14px}
+  .mixline:last-child{border-bottom:none}
+  .mixline .cval{display:inline}
+
+  /* mixes grid */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}
+  .mcard{cursor:pointer;transition:transform .15s,border-color .15s;margin-bottom:0}
+  .mcard:hover{transform:translateY(-2px);border-color:rgba(255,85,0,.55)}
+  .mcardmeta{margin:6px 0 4px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand"><span class="dot"></span>mixid <span class="tag">— Shazam for DJ mixes</span></div>
+  <nav>
+    <button class="tab active" data-tab="analyze">Analyze</button>
+    <button class="tab" data-tab="search">Search</button>
+    <button class="tab" data-tab="mixes">Mixes</button>
+  </nav>
+</header>
+
+<main>
+  <!-- Analyze -->
+  <section id="tab-analyze" class="panel active">
+    <div class="card">
+      <div id="dropzone" class="dropzone">
+        <input type="file" id="file-input" accept="audio/*,.mp3,.wav,.flac,.m4a,.ogg,.aiff" hidden>
+        <div class="dz-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17V5"/><path d="M6 11l6-6 6 6"/><path d="M4 19h16"/></svg>
+        </div>
+        <div><strong>Drag &amp; drop an audio file</strong><br>or click to browse</div>
+        <div class="dz-file" id="dz-file"></div>
+      </div>
+      <div class="or">or analyze a file already on the server</div>
+      <div class="pathrow">
+        <input type="text" id="server-path" placeholder="/path/on/server/mix.wav" spellcheck="false">
+        <input type="text" id="analyze-title" placeholder="Mix title (optional)">
+      </div>
+      <button id="analyze-btn" class="primary">Identify tracks</button>
+      <div id="analyze-status" class="status"></div>
+    </div>
+    <div id="analyze-result"></div>
+  </section>
+
+  <!-- Search -->
+  <section id="tab-search" class="panel">
+    <div class="card">
+      <input type="text" id="search-input" placeholder="Search tracks by title or artist…" autocomplete="off" spellcheck="false">
+      <div id="search-results"><div class="empty">Type a song or artist name</div></div>
+    </div>
+  </section>
+
+  <!-- Mixes -->
+  <section id="tab-mixes" class="panel">
+    <div id="mixes-list" class="grid"></div>
+    <div id="mix-detail" hidden></div>
+  </section>
+</main>
+
+<script>
+"use strict";
+const $  = (s, el=document) => el.querySelector(s);
+const $$ = (s, el=document) => [...el.querySelectorAll(s)];
+
+/* ---------- helpers ---------- */
+const fmtTime = s => {
+  s = Math.max(0, Math.floor(Number(s) || 0));
+  return String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
+};
+const fmtDate = v => {
+  if (v === null || v === undefined || v === "") return "";
+  const d = typeof v === "number" ? new Date(v * 1000) : new Date(v);
+  return isNaN(d) ? String(v)
+    : d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+};
+const confClass = c => c > 0.6 ? "green" : c > 0.4 ? "amber" : "red";
+const esc = s => String(s ?? "").replace(/[&<>"']/g,
+  m => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[m]));
+
+async function api(url, opts) {
+  let r;
+  try { r = await fetch(url, opts); }
+  catch { throw new Error("server unreachable — is it running on :8900?"); }
+  if (!r.ok) {
+    let msg = r.status + " " + r.statusText;
+    try {
+      const j = await r.json();
+      if (j.detail) msg = typeof j.detail === "string" ? j.detail : JSON.stringify(j.detail);
+    } catch {}
+    throw new Error(msg);
+  }
+  return r.json();
+}
+
+/* ---------- tabs ---------- */
+$$(".tab").forEach(t => t.addEventListener("click", () => {
+  $$(".tab").forEach(x => x.classList.toggle("active", x === t));
+  $$(".panel").forEach(p => p.classList.toggle("active", p.id === "tab-" + t.dataset.tab));
+  if (t.dataset.tab === "mixes") loadMixes();
+}));
+
+/* ---------- shared tracklist renderer ---------- */
+function tracklistHTML(rows) {
+  if (!rows || !rows.length) return '<div class="empty">No tracks identified.</div>';
+  return '<div class="tracks">' + rows.map(t => {
+    const c = Number(t.confidence) || 0;
+    return `<div class="trow">
+      <span class="tstart">${fmtTime(t.t_start)}</span>
+      <span class="tmain">${esc(t.title)}<span class="artist"> — ${esc(t.artist)}</span></span>
+      <span class="conf"><span class="bar"><i class="${confClass(c)}"
+        style="width:${Math.min(100, c * 100).toFixed(1)}%"></i></span>
+        <span class="cval">${c.toFixed(2)}</span></span>
+    </div>`;
+  }).join("") + "</div>";
+}
+
+/* ---------- Analyze tab ---------- */
+const dz = $("#dropzone"), fileInput = $("#file-input");
+let pickedFile = null;
+
+dz.addEventListener("click", () => fileInput.click());
+fileInput.addEventListener("change", () => setFile(fileInput.files[0]));
+["dragover", "dragenter"].forEach(ev =>
+  dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.add("dragover"); }));
+["dragleave", "drop"].forEach(ev =>
+  dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.remove("dragover"); }));
+dz.addEventListener("drop", e => setFile(e.dataTransfer.files[0]));
+
+function setFile(f) {
+  if (!f) return;
+  pickedFile = f;
+  $("#dz-file").textContent = `${f.name} (${(f.size / 1048576).toFixed(1)} MB)`;
+}
+
+$("#analyze-btn").addEventListener("click", async () => {
+  const btn = $("#analyze-btn"), status = $("#analyze-status");
+  const title = $("#analyze-title").value.trim();
+  const path = $("#server-path").value.trim();
+  status.className = "status"; status.textContent = "";
+  $("#analyze-result").innerHTML = "";
+
+  let req;
+  if (pickedFile) {
+    const fd = new FormData();
+    fd.append("file", pickedFile);
+    if (title) fd.append("title", title);
+    req = { method: "POST", body: fd };
+  } else if (path) {
+    req = { method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ path, title: title || undefined }) };
+  } else {
+    status.className = "status err";
+    status.textContent = "Pick a file to upload, or enter a server file path.";
+    return;
+  }
+
+  btn.disabled = true;
+  status.innerHTML = '<span class="spin"></span>Analyzing… long mixes can take a few minutes.';
+  try {
+    const res = await api("/api/analyze", req);
+    status.textContent = "";
+    const dets = res.detections || [];
+    $("#analyze-result").innerHTML = `
+      <div class="card">
+        <div class="mixhead">
+          <div>
+            <div class="mixtitle">${esc(res.title || "Untitled mix")}</div>
+            <div class="muted small">${fmtTime(res.duration)} · ${dets.length}
+              track${dets.length === 1 ? "" : "s"} identified</div>
+          </div>
+        </div>
+        ${tracklistHTML(dets)}
+      </div>`;
+    loadMixes.clear();
+  } catch (e) {
+    status.className = "status err";
+    status.textContent = e.message;
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+/* ---------- Search tab ---------- */
+let searchTimer = null;
+$("#search-input").addEventListener("input", e => {
+  clearTimeout(searchTimer);
+  const q = e.target.value.trim();
+  if (!q) {
+    $("#search-results").innerHTML = '<div class="empty">Type a song or artist name</div>';
+    return;
+  }
+  searchTimer = setTimeout(() => doSearch(q), 300);
+});
+
+async function doSearch(q) {
+  const box = $("#search-results");
+  box.innerHTML = '<div class="empty"><span class="spin"></span>Searching…</div>';
+  try {
+    const { results } = await api("/api/tracks/search?q=" + encodeURIComponent(q));
+    if (!results.length) {
+      box.innerHTML = `<div class="empty">No matches for “${esc(q)}”.</div>`;
+      return;
+    }
+    box.innerHTML = results.map(t => {
+      const mixes = t.mixes || [];
+      const n = mixes.length;
+      return `<div class="srow">
+        <div class="shead">
+          <span class="tmain">${esc(t.title)}<span class="artist"> — ${esc(t.artist)}</span></span>
+          <span class="badge">${n} mix${n === 1 ? "" : "es"}</span>
+          <span class="chev">▾</span>
+        </div>
+        <div class="sbody" hidden>
+          ${mixes.map(m => `<div class="mixline">${esc(m.title)} — plays at
+            ${fmtTime(m.t_start)}–${fmtTime(m.t_end)}
+            <span class="cval">${(Number(m.confidence) || 0).toFixed(2)}</span></div>`).join("")
+            || '<div class="muted small">Not in any analyzed mix yet.</div>'}
+        </div>
+      </div>`;
+    }).join("");
+    $$(".srow", box).forEach(row =>
+      $(".shead", row).addEventListener("click", () => {
+        const b = $(".sbody", row);
+        b.hidden = !b.hidden;
+        row.classList.toggle("open", !b.hidden);
+      }));
+  } catch (e) {
+    box.innerHTML = `<div class="empty" style="color:var(--red)">${esc(e.message)}</div>`;
+  }
+}
+
+/* ---------- Mixes tab ---------- */
+let mixesCache = null;
+function loadMixes(force) {
+  if (mixesCache && !force) { renderMixes(mixesCache); return; }
+  const list = $("#mixes-list");
+  $("#mix-detail").hidden = true;
+  list.hidden = false;
+  list.innerHTML = '<div class="empty"><span class="spin"></span>Loading…</div>';
+  api("/api/mixes")
+    .then(({ mixes }) => { mixesCache = mixes; renderMixes(mixes); })
+    .catch(e => { list.innerHTML = `<div class="empty" style="color:var(--red)">${esc(e.message)}</div>`; });
+}
+loadMixes.clear = () => { mixesCache = null; };
+
+function renderMixes(mixes) {
+  const list = $("#mixes-list");
+  if (!mixes.length) {
+    list.innerHTML = '<div class="empty">No mixes analyzed yet — upload one in the Analyze tab.</div>';
+    return;
+  }
+  list.innerHTML = mixes.map(m => `
+    <div class="card mcard" data-id="${m.id}">
+      <div class="mixtitle">${esc(m.title || "Untitled mix")}</div>
+      <div class="mcardmeta muted">${fmtTime(m.duration)} · ${m.track_count}
+        track${m.track_count === 1 ? "" : "s"}</div>
+      <div class="muted small">added ${fmtDate(m.added_at)}</div>
+    </div>`).join("");
+  $$(".mcard", list).forEach(c => c.addEventListener("click", () => openMix(c.dataset.id)));
+}
+
+async function openMix(id) {
+  const detail = $("#mix-detail");
+  $("#mixes-list").hidden = true;
+  detail.hidden = false;
+  detail.innerHTML = '<div class="empty"><span class="spin"></span>Loading…</div>';
+  try {
+    const { mix, tracklist } = await api("/api/mixes/" + encodeURIComponent(id));
+    detail.innerHTML = `
+      <button class="ghost" id="back-btn">← All mixes</button>
+      <div class="card">
+        <div class="mixtitle">${esc(mix.title || "Untitled mix")}</div>
+        <div class="muted small" style="margin:4px 0 6px">${fmtTime(mix.duration)} ·
+          ${tracklist.length} track${tracklist.length === 1 ? "" : "s"} ·
+          added ${fmtDate(mix.added_at)}</div>
+        ${tracklistHTML(tracklist)}
+      </div>`;
+    $("#back-btn").addEventListener("click", () => {
+      detail.hidden = true;
+      $("#mixes-list").hidden = false;
+    });
+  } catch (e) {
+    detail.innerHTML = `<div class="empty" style="color:var(--red)">${esc(e.message)}</div>`;
+  }
+}
+</script>
+</body>
+</html>

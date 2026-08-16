@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>MixID — identify tracks in DJ mixes</title>
+<style>
+  :root{
+    --bg:#0e1116; --card:#151a21; --card2:#181e27; --border:#23272e;
+    --text:#e6e9ef; --muted:#8b93a1; --accent:#ff5500; --accent-h:#ff7a33;
+    --green:#22c55e; --amber:#f59e0b; --red:#ef4444;
+    --sat:env(safe-area-inset-top,0px); --sab:env(safe-area-inset-bottom,0px);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:var(--bg); color:var(--text); min-height:100vh;
+    font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-tap-highlight-color:transparent;
+  }
+  header{
+    position:sticky; top:0; z-index:5; background:rgba(14,17,22,.94); backdrop-filter:blur(6px);
+    border-bottom:1px solid var(--border); padding-top:var(--sat);
+  }
+  .brand{
+    display:flex; align-items:center; gap:10px; padding:14px 18px 0;
+    font-size:20px; font-weight:700; letter-spacing:.5px;
+  }
+  .brand .dot{width:12px;height:12px;border-radius:50%;background:var(--accent);
+    box-shadow:0 0 10px rgba(255,85,0,.7);flex:none}
+  .brand .tag{font-size:12px;font-weight:400;color:var(--muted);letter-spacing:0}
+  nav{display:flex;gap:4px;padding:8px 10px 0;overflow-x:auto}
+  .tab{
+    background:none;border:none;color:var(--muted);font:inherit;font-weight:600;
+    padding:12px 12px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;
+    min-height:44px;transition:color .15s,border-color .15s;flex:none;
+  }
+  .tab:hover{color:var(--text)}
+  .tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+  main{max-width:680px;margin:0 auto;padding:20px 16px calc(40px + var(--sab))}
+  .panel{display:none}
+  .panel.active{display:block}
+
+  .card{
+    background:var(--card);border:1px solid var(--border);border-radius:14px;
+    padding:18px;margin-bottom:16px;
+  }
+  .muted{color:var(--muted)} .small{font-size:12.5px}
+  .empty{color:var(--muted);padding:22px 8px;text-align:center}
+
+  /* inputs & buttons — 44px+ touch targets */
+  input[type=text]{
+    width:100%;background:var(--bg);border:1px solid var(--border);border-radius:10px;
+    color:var(--text);padding:12px 13px;font:inherit;min-height:44px;transition:border-color .15s;
+  }
+  input[type=text]::placeholder{color:#5b6270}
+  input[type=text]:focus{outline:none;border-color:var(--accent)}
+  button.primary{
+    background:var(--accent);color:#160d07;border:none;border-radius:10px;
+    padding:13px 20px;font:inherit;font-weight:700;cursor:pointer;min-height:44px;
+    width:100%;transition:background .15s;
+  }
+  button.primary:hover{background:var(--accent-h)}
+  button.primary:disabled{opacity:.45;cursor:default}
+  button.ghost{
+    background:none;border:1px solid var(--border);border-radius:10px;color:var(--muted);
+    padding:12px 14px;font:inherit;font-weight:600;cursor:pointer;min-height:44px;
+    width:100%;transition:color .15s,border-color .15s;
+  }
+  button.ghost:hover{color:var(--text);border-color:var(--accent)}
+  .stack>*+*{margin-top:10px}
+
+  .status{margin-top:14px;color:var(--muted);min-height:22px}
+  .status.err{color:var(--red)}
+  .picked{
+    background:var(--bg);border:1px solid var(--border);border-radius:10px;
+    padding:10px 13px;color:var(--accent);font-weight:600;word-break:break-all;
+    font-size:13.5px;min-height:44px;display:flex;align-items:center;
+  }
+  .picked:empty{display:none}
+
+  .spin{
+    display:inline-block;width:16px;height:16px;border-radius:50%;
+    border:2px solid var(--border);border-top-color:var(--accent);
+    vertical-align:-3px;margin-right:8px;animation:spin .8s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* progress bar (library indexing) */
+  .pbar{width:100%;height:8px;border-radius:4px;background:var(--border);overflow:hidden;margin-top:12px}
+  .pbar i{display:block;height:100%;background:var(--accent);border-radius:4px;transition:width .2s}
+  .pfile{margin-top:8px;color:var(--muted);font-size:12.5px;word-break:break-all;min-height:18px}
+
+  /* tracklist rows */
+  .tracks{margin-top:14px;border-top:1px solid var(--border)}
+  .trow{
+    display:flex;align-items:center;gap:12px;padding:12px 4px;min-height:48px;
+    border-bottom:1px solid var(--border);
+  }
+  .tstart{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--muted);font-size:13px;min-width:46px;flex:none}
+  .tmain{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .tmain .artist{color:var(--muted)}
+  .conf{display:flex;align-items:center;gap:8px;flex:none}
+  .bar{width:64px;height:6px;border-radius:3px;background:var(--border);overflow:hidden;display:inline-block}
+  .bar i{display:block;height:100%;border-radius:3px}
+  .bar i.green{background:var(--green)} .bar i.amber{background:var(--amber)} .bar i.red{background:var(--red)}
+  .cval{font-size:12px;color:var(--muted);font-family:ui-monospace,Menlo,monospace;min-width:30px;text-align:right}
+
+  .mixhead{display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .mixtitle{font-size:17px;font-weight:700;word-break:break-word}
+
+  /* search */
+  .srow{border:1px solid var(--border);border-radius:11px;margin-top:10px;background:var(--card);
+    transition:border-color .15s}
+  .srow.open{border-color:rgba(255,85,0,.5)}
+  .shead{display:flex;align-items:center;gap:12px;padding:12px 14px;cursor:pointer;user-select:none;min-height:48px}
+  .shead .tmain{flex:1}
+  .badge{font-size:11.5px;font-weight:700;color:var(--accent);background:rgba(255,85,0,.1);
+    border-radius:20px;padding:3px 10px;white-space:nowrap;flex:none}
+  .chev{color:var(--muted);transition:transform .15s;flex:none}
+  .srow.open .chev{transform:rotate(180deg)}
+  .sbody{padding:2px 14px 12px 14px;border-top:1px solid var(--border)}
+  .mixline{padding:9px 0;color:var(--muted);border-bottom:1px dashed var(--border);font-size:14px}
+  .mixline:last-child{border-bottom:none}
+  .mixline .cval{display:inline}
+
+  /* mixes grid */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px}
+  .mcard{cursor:pointer;transition:transform .15s,border-color .15s;margin-bottom:0;padding:16px}
+  .mcard:hover{transform:translateY(-2px);border-color:rgba(255,85,0,.55)}
+  .mcardmeta{margin:6px 0 4px}
+
+  .fail{margin-top:10px}
+  .fail summary{color:var(--amber);cursor:pointer;min-height:44px;display:flex;align-items:center}
+  .fail pre{white-space:pre-wrap;word-break:break-all;font-size:12px;color:var(--muted);
+    background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;margin:0}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand"><span class="dot"></span>mixid <span class="tag">— Shazam for DJ mixes</span></div>
+  <nav>
+    <button class="tab active" data-tab="analyze">Analyze</button>
+    <button class="tab" data-tab="library">Library</button>
+    <button class="tab" data-tab="search">Search</button>
+    <button class="tab" data-tab="mixes">Mixes</button>
+  </nav>
+</header>
+
+<main>
+  <!-- Analyze -->
+  <section id="tab-analyze" class="panel active">
+    <div class="card stack">
+      <button id="pick-mix-btn" class="ghost">🎵&nbsp; Pick mix file…</button>
+      <div id="mix-path" class="picked"></div>
+      <input type="text" id="analyze-path" placeholder="…or type a file path directly" spellcheck="false" autocapitalize="off">
+      <input type="text" id="analyze-title" placeholder="Mix title (optional)">
+      <button id="analyze-btn" class="primary">Identify tracks</button>
+      <div id="analyze-status" class="status"></div>
+    </div>
+    <div id="analyze-result"></div>
+  </section>
+
+  <!-- Library -->
+  <section id="tab-library" class="panel">
+    <div class="card stack">
+      <div class="muted small">Index your music folder first — each track is fingerprinted so mixes can be identified against it.</div>
+      <button id="pick-folder-btn" class="ghost">📁&nbsp; Pick music folder…</button>
+      <div id="folder-path" class="picked"></div>
+      <input type="text" id="folder-input" placeholder="…or type a folder path directly" spellcheck="false" autocapitalize="off">
+      <button id="index-btn" class="primary">Index folder</button>
+      <div id="index-status" class="status"></div>
+      <div class="pbar" id="index-bar-wrap" hidden><i id="index-bar" style="width:0%"></i></div>
+      <div class="pfile" id="index-file"></div>
+      <div id="index-result"></div>
+    </div>
+  </section>
+
+  <!-- Search -->
+  <section id="tab-search" class="panel">
+    <div class="card">
+      <input type="text" id="search-input" placeholder="Search tracks by title or artist…" autocomplete="off" spellcheck="false" autocapitalize="off">
+      <div id="search-results"><div class="empty">Type a song or artist name</div></div>
+    </div>
+  </section>
+
+  <!-- Mixes -->
+  <section id="tab-mixes" class="panel">
+    <div id="mixes-list" class="grid"></div>
+    <div id="mix-detail" hidden></div>
+  </section>
+</main>
+
+<script>
+"use strict";
+const $  = (s, el=document) => el.querySelector(s);
+const $$ = (s, el=document) => [...el.querySelectorAll(s)];
+
+/* ---------- Tauri bridge ---------- */
+const TAURI = window.__TAURI__;
+const invoke = (cmd, args) => TAURI.core.invoke(cmd, args);
+const pickFile = () => TAURI.dialog.open({ multiple: false });
+const pickFolder = () => TAURI.dialog.open({ multiple: false, directory: true });
+
+/* ---------- helpers ---------- */
+const fmtTime = s => {
+  s = Math.max(0, Math.floor(Number(s) || 0));
+  return String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
+};
+const fmtDate = v => {
+  if (v === null || v === undefined || v === "") return "";
+  const d = typeof v === "number" ? new Date(v * 1000) : new Date(v);
+  return isNaN(d) ? String(v)
+    : d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+};
+const confClass = c => c > 0.6 ? "green" : c > 0.4 ? "amber" : "red";
+const esc = s => String(s ?? "").replace(/[&<>"']/g,
+  m => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[m]));
+const onePath = r => Array.isArray(r) ? (r[0] ?? null) : r;
+
+if (!TAURI) {
+  document.body.insertAdjacentHTML("afterbegin",
+    '<div style="background:#7a1f1f;color:#fff;padding:10px 16px;font-size:13px">' +
+    "Not running inside Tauri — invoke() calls will fail.</div>");
+}
+
+/* ---------- tabs ---------- */
+$$(".tab").forEach(t => t.addEventListener("click", () => {
+  $$(".tab").forEach(x => x.classList.toggle("active", x === t));
+  $$(".panel").forEach(p => p.classList.toggle("active", p.id === "tab-" + t.dataset.tab));
+  if (t.dataset.tab === "mixes") loadMixes();
+}));
+
+/* ---------- shared tracklist renderer ---------- */
+function tracklistHTML(rows) {
+  if (!rows || !rows.length) return '<div class="empty">No tracks identified.</div>';
+  return '<div class="tracks">' + rows.map(t => {
+    const c = Number(t.confidence) || 0;
+    return `<div class="trow">
+      <span class="tstart">${fmtTime(t.t_start)}</span>
+      <span class="tmain">${esc(t.title)}<span class="artist">${t.artist ? " — " + esc(t.artist) : ""}</span></span>
+      <span class="conf"><span class="bar"><i class="${confClass(c)}"
+        style="width:${Math.min(100, c * 100).toFixed(1)}%"></i></span>
+        <span class="cval">${c.toFixed(2)}</span></span>
+    </div>`;
+  }).join("") + "</div>";
+}
+
+/* ---------- Analyze tab ---------- */
+let pickedMixPath = null;
+
+$("#pick-mix-btn").addEventListener("click", async () => {
+  try {
+    const p = onePath(await pickFile());
+    if (p) {
+      pickedMixPath = p;
+      $("#mix-path").textContent = p;
+      $("#analyze-path").value = "";
+    }
+  } catch (e) { $("#analyze-status").className = "status err"; $("#analyze-status").textContent = String(e); }
+});
+
+$("#analyze-path").addEventListener("input", e => { pickedMixPath = null; $("#mix-path").textContent = ""; });
+
+$("#analyze-btn").addEventListener("click", async () => {
+  const btn = $("#analyze-btn"), status = $("#analyze-status");
+  const title = $("#analyze-title").value.trim();
+  const path = pickedMixPath || $("#analyze-path").value.trim();
+  status.className = "status"; status.textContent = "";
+  $("#analyze-result").innerHTML = "";
+
+  if (!path) {
+    status.className = "status err";
+    status.textContent = "Pick a mix file first.";
+    return;
+  }
+
+  btn.disabled = true;
+  status.innerHTML = '<span class="spin"></span>Analyzing… long mixes can take a few minutes.';
+  try {
+    const res = await invoke("analyze_path", { path, title: title || null });
+    status.textContent = "";
+    const dets = res.detections || [];
+    $("#analyze-result").innerHTML = `
+      <div class="card">
+        <div class="mixhead">
+          <div>
+            <div class="mixtitle">${esc(res.title || "Untitled mix")}</div>
+            <div class="muted small">${fmtTime(res.duration)} · ${dets.length}
+              track${dets.length === 1 ? "" : "s"} identified</div>
+          </div>
+        </div>
+        ${tracklistHTML(dets)}
+      </div>`;
+    mixesCache = null;
+  } catch (e) {
+    status.className = "status err";
+    status.textContent = String(e);
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+/* ---------- Library tab ---------- */
+let pickedFolderPath = null;
+let unlistenIndex = null;
+
+$("#pick-folder-btn").addEventListener("click", async () => {
+  try {
+    const p = onePath(await pickFolder());
+    if (p) {
+      pickedFolderPath = p;
+      $("#folder-path").textContent = p;
+      $("#folder-input").value = "";
+    }
+  } catch (e) { $("#index-status").className = "status err"; $("#index-status").textContent = String(e); }
+});
+
+$("#folder-input").addEventListener("input", () => { pickedFolderPath = null; $("#folder-path").textContent = ""; });
+
+$("#index-btn").addEventListener("click", async () => {
+  const btn = $("#index-btn"), status = $("#index-status");
+  const path = pickedFolderPath || $("#folder-input").value.trim();
+  status.className = "status"; status.textContent = "";
+  $("#index-result").innerHTML = "";
+
+  if (!path) {
+    status.className = "status err";
+    status.textContent = "Pick a music folder first.";
+    return;
+  }
+
+  btn.disabled = true;
+  $("#index-bar-wrap").hidden = false;
+  $("#index-bar").style.width = "0%";
+  status.innerHTML = '<span class="spin"></span>Counting audio files…';
+
+  if (unlistenIndex) { try { unlistenIndex(); } catch {} }
+  if (TAURI.event) {
+    unlistenIndex = await TAURI.event.listen("index-progress", ev => {
+      const { done, total, file } = ev.payload || {};
+      if (total > 0) $("#index-bar").style.width = (done / total * 100).toFixed(1) + "%";
+      $("#index-file").textContent = file || "";
+      status.innerHTML = `<span class="spin"></span>Indexing ${done}/${total}…`;
+    });
+  }
+
+  try {
+    const res = await invoke("index_folder", { path });
+    status.textContent = "";
+    const failedHTML = res.failed.length
+      ? `<details class="fail"><summary>${res.failed.length} file${res.failed.length === 1 ? "" : "s"} failed</summary>` +
+        `<pre>${esc(res.failed.join("\n"))}</pre></details>`
+      : "";
+    $("#index-result").innerHTML = `
+      <div class="card" style="margin-top:14px">
+        <div class="mixtitle">✅ Indexed ${res.indexed} track${res.indexed === 1 ? "" : "s"}</div>
+        <div class="muted small" style="margin-top:4px">Library is ready — go identify a mix.</div>
+        ${failedHTML}
+      </div>`;
+  } catch (e) {
+    status.className = "status err";
+    status.textContent = String(e);
+  } finally {
+    btn.disabled = false;
+    if (unlistenIndex) { try { unlistenIndex(); } catch {} unlistenIndex = null; }
+  }
+});
+
+/* ---------- Search tab ---------- */
+let searchTimer = null;
+$("#search-input").addEventListener("input", e => {
+  clearTimeout(searchTimer);
+  const q = e.target.value.trim();
+  if (!q) {
+    $("#search-results").innerHTML = '<div class="empty">Type a song or artist name</div>';
+    return;
+  }
+  searchTimer = setTimeout(() => doSearch(q), 300);
+});
+
+async function doSearch(q) {
+  const box = $("#search-results");
+  box.innerHTML = '<div class="empty"><span class="spin"></span>Searching…</div>';
+  try {
+    const results = await invoke("search_tracks", { q });
+    if (!results.length) {
+      box.innerHTML = `<div class="empty">No matches for “${esc(q)}”.</div>`;
+      return;
+    }
+    box.innerHTML = results.map(r => {
+      const t = r.track, mixes = r.mixes || [];
+      const n = mixes.length;
+      return `<div class="srow">
+        <div class="shead">
+          <span class="tmain">${esc(t.title)}${t.artist ? `<span class="artist"> — ${esc(t.artist)}</span>` : ""}</span>
+          <span class="badge">${n} mix${n === 1 ? "" : "es"}</span>
+          <span class="chev">▾</span>
+        </div>
+        <div class="sbody" hidden>
+          ${mixes.map(m => `<div class="mixline">${esc(m.mix_title)} — plays at
+            ${fmtTime(m.t_start)}–${fmtTime(m.t_end)}
+            <span class="cval">${(Number(m.confidence) || 0).toFixed(2)}</span></div>`).join("")
+            || '<div class="muted small">Not in any analyzed mix yet.</div>'}
+        </div>
+      </div>`;
+    }).join("");
+    $$(".srow", box).forEach(row =>
+      $(".shead", row).addEventListener("click", () => {
+        const b = $(".sbody", row);
+        b.hidden = !b.hidden;
+        row.classList.toggle("open", !b.hidden);
+      }));
+  } catch (e) {
+    box.innerHTML = `<div class="empty" style="color:var(--red)">${esc(String(e))}</div>`;
+  }
+}
+
+/* ---------- Mixes tab ---------- */
+let mixesCache = null;
+function loadMixes(force) {
+  if (mixesCache && !force) { renderMixes(mixesCache); return; }
+  const list = $("#mixes-list");
+  $("#mix-detail").hidden = true;
+  list.hidden = false;
+  list.innerHTML = '<div class="empty"><span class="spin"></span>Loading…</div>';
+  invoke("list_mixes")
+    .then(mixes => { mixesCache = mixes; renderMixes(mixes); })
+    .catch(e => { list.innerHTML = `<div class="empty" style="color:var(--red)">${esc(String(e))}</div>`; });
+}
+
+function renderMixes(mixes) {
+  const list = $("#mixes-list");
+  if (!mixes.length) {
+    list.innerHTML = '<div class="empty">No mixes analyzed yet — analyze one in the Analyze tab.</div>';
+    return;
+  }
+  list.innerHTML = mixes.map(m => `
+    <div class="card mcard" data-id="${m.id}">
+      <div class="mixtitle">${esc(m.title || "Untitled mix")}</div>
+      <div class="mcardmeta muted">${fmtTime(m.duration)} · ${m.track_count}
+        track${m.track_count === 1 ? "" : "s"}</div>
+      <div class="muted small">added ${fmtDate(m.added_at)}</div>
+    </div>`).join("");
+  $$(".mcard", list).forEach(c => c.addEventListener("click", () => openMix(c.dataset.id)));
+}
+
+async function openMix(id) {
+  const detail = $("#mix-detail");
+  $("#mixes-list").hidden = true;
+  detail.hidden = false;
+  detail.innerHTML = '<div class="empty"><span class="spin"></span>Loading…</div>';
+  try {
+    const { mix, tracklist } = await invoke("get_mix", { id: Number(id) });
+    detail.innerHTML = `
+      <button class="ghost" id="back-btn" style="margin-bottom:14px">← All mixes</button>
+      <div class="card">
+        <div class="mixtitle">${esc(mix.title || "Untitled mix")}</div>
+        <div class="muted small" style="margin:4px 0 6px">${fmtTime(mix.duration)} ·
+          ${tracklist.length} track${tracklist.length === 1 ? "" : "s"} ·
+          added ${fmtDate(mix.added_at)}</div>
+        ${tracklistHTML(tracklist)}
+      </div>`;
+    $("#back-btn").addEventListener("click", () => {
+      detail.hidden = true;
+      $("#mixes-list").hidden = false;
+    });
+  } catch (e) {
+    detail.innerHTML = `<div class="empty" style="color:var(--red)">${esc(String(e))}</div>`;
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+[package]
+name = "mixid-core"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+rusqlite.workspace = true
+symphonia.workspace = true
+rustfft.workspace = true
+serde = { version = "1", features = ["derive"] }

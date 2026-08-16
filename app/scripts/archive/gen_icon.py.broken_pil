@@ -1,0 +1,65 @@
+#!/usr/bin/env python3
+"""Generate the MixID app icon: 1024x1024, dark bg (#0e1116), orange (#ff5500)
+waveform motif — vertical rounded bars of varying heights, centered, plus a
+subtle magnifier-free "pulse" glow. Matches the web UI palette in
+static/index.html (--bg #0e1116, --accent #ff5500).
+
+Regenerate: python3 app/scripts/gen_icon.py  (writes app/icon.png)
+"""
+
+import math
+import random
+from PIL import Image, ImageDraw, ImageFilter
+
+W = H = 1024
+BG = (14, 17, 22)  # #0e1116
+ACCENT = (255, 85, 0)  # #ff5500
+ACCENT_HI = (255, 122, 51)  # #ff7a33
+
+img = Image.new("RGB", (W, H), BG)
+draw = ImageDraw.Draw(img)
+
+# --- subtle radial glow behind the waveform center ---
+glow = Image.new("L", (W, H), 0)
+gdraw = ImageDraw.Draw(glow)
+gdraw.ellipse([W // 2 - 330, H // 2 - 260, W // 2 + 330, H // 2 + 260], fill=90)
+glow = glow.filter(ImageFilter.GaussianBlur(120))
+accent_layer = Image.new("RGB", (W, H), ACCENT)
+soft = Image.composite(accent_layer, img, glow)
+img = Image.blend(img, soft, 0.35)  # 35% toward the glow-composited version
+draw = ImageDraw.Draw(img)
+
+# --- waveform bars ---
+random.seed(7)  # deterministic icon
+n_bars = 15
+bar_w = 34
+gap = 22
+total_w = n_bars * bar_w + (n_bars - 1) * gap
+x0 = (W - total_w) // 2
+cy = H // 2
+max_h = 560
+
+# symmetric-ish envelope: taller in the middle, jittered
+heights = []
+for i in range(n_bars):
+    t = abs(i - (n_bars - 1) / 2) / ((n_bars - 1) / 2)  # 0 center -> 1 edge
+    env = 1.0 - 0.72 * t  # envelope
+    jitter = 0.55 + random.random() * 0.45
+    heights.append(max_h * env * jitter)
+
+for i, h in enumerate(heights):
+    x = x0 + i * (bar_w + gap)
+    top = cy - h / 2
+    bot = cy + h / 2
+    # center bar is the accent-hot one; others accent with slight gradient feel
+    color = ACCENT_HI if i in (6, 7, 8) else ACCENT
+    draw.rounded_rectangle([x, top, x + bar_w, bot], radius=bar_w // 2, fill=color)
+
+# --- baseline "scan" line under the waveform ---
+line_y = cy + max_h // 2 + 70
+draw.rounded_rectangle(
+    [x0, line_y, x0 + total_w, line_y + 10], radius=5, fill=(139, 147, 161)
+)  # muted #8b93a1
+
+img.save("/home/fivelidz/projects/GLM_projects/mix_identifier/app/icon.png")
+print("wrote app/icon.png", img.size)

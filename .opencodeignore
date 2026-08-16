@@ -1,0 +1,15 @@
+target/
+**/target/
+app/gen/
+app/src-tauri/gen/
+app/ui/node_modules/
+node_modules/
+test_data/
+uploads/
+*.db
+*.db-journal
+*.apk
+*.aab
+__pycache__/
+.ruff_cache/
+.opencode/
