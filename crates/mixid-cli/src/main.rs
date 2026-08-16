@@ -62,7 +62,9 @@ fn split_title(stem: &str) -> (String, String) {
 }
 
 fn collect_audio(dir: &Path, out: &mut Vec<PathBuf>) {
-    let Ok(entries) = std::fs::read_dir(dir) else { return };
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
     for e in entries.flatten() {
         let p = e.path();
         if p.is_dir() {
@@ -106,10 +108,17 @@ fn main() -> Result<()> {
                     }
                 }
             }
-            println!("\nIndexed {} / {} files into {}", total - failed.len(), total, cli.db);
+            println!(
+                "\nIndexed {} / {} files into {}",
+                total - failed.len(),
+                total,
+                cli.db
+            );
             if !failed.is_empty() {
                 println!("Failed files:");
-                for f in &failed { println!("  {f}"); }
+                for f in &failed {
+                    println!("  {f}");
+                }
             }
         }
         Cmd::Analyze { file, title, json } => {
@@ -118,11 +127,27 @@ fn main() -> Result<()> {
             if json {
                 println!("{}", serde_json::to_string_pretty(&result)?);
             } else {
-                println!("{} ({}s) — {} tracks detected:", result.title, result.duration as u64, result.detections.len());
+                println!(
+                    "{} ({}s) — {} tracks detected:",
+                    result.title,
+                    result.duration as u64,
+                    result.detections.len()
+                );
                 for d in &result.detections {
-                    let artist = if d.artist.is_empty() { String::new() } else { format!(" — {}", d.artist) };
-                    println!("[{}] {}{} ({}–{}, {:.2})", fmt_time(d.t_start), d.title, artist,
-                        fmt_time(d.t_start), fmt_time(d.t_end), d.confidence);
+                    let artist = if d.artist.is_empty() {
+                        String::new()
+                    } else {
+                        format!(" — {}", d.artist)
+                    };
+                    println!(
+                        "[{}] {}{} ({}–{}, {:.2})",
+                        fmt_time(d.t_start),
+                        d.title,
+                        artist,
+                        fmt_time(d.t_start),
+                        fmt_time(d.t_end),
+                        d.confidence
+                    );
                 }
             }
         }
@@ -134,23 +159,42 @@ fn main() -> Result<()> {
                 return Ok(());
             }
             for t in &tracks {
-                println!("{} — {} ({}s, in {} mix(es))", t.title, t.artist, t.duration as u64, t.mix_count);
+                println!(
+                    "{} — {} ({}s, in {} mix(es))",
+                    t.title, t.artist, t.duration as u64, t.mix_count
+                );
                 for m in db.mixes_containing_track(t.id)? {
-                    println!("    in \"{}\" at {}–{} ({:.2})", m.mix_title,
-                        fmt_time(m.t_start), fmt_time(m.t_end), m.confidence);
+                    println!(
+                        "    in \"{}\" at {}–{} ({:.2})",
+                        m.mix_title,
+                        fmt_time(m.t_start),
+                        fmt_time(m.t_end),
+                        m.confidence
+                    );
                 }
             }
         }
         Cmd::Mixes => {
             let db = Db::open(&cli.db)?;
             for m in db.mixes()? {
-                println!("#{} {} ({}s, {} tracks, added {})", m.id, m.title, m.duration as u64, m.track_count, m.added_at);
+                println!(
+                    "#{} {} ({}s, {} tracks, added {})",
+                    m.id, m.title, m.duration as u64, m.track_count, m.added_at
+                );
             }
         }
         Cmd::Tracks => {
             let db = Db::open(&cli.db)?;
             for t in db.tracks()? {
-                println!("#{} {} — {} ({}s, {} hashes in {} mixes)", t.id, t.title, t.artist, t.duration as u64, t.mix_count.max(0), t.mix_count);
+                println!(
+                    "#{} {} — {} ({}s, {} hashes in {} mixes)",
+                    t.id,
+                    t.title,
+                    t.artist,
+                    t.duration as u64,
+                    t.mix_count.max(0),
+                    t.mix_count
+                );
             }
         }
     }

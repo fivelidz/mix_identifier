@@ -62,7 +62,9 @@ pub fn match_fingerprints(
         .map(|(h, mut ts)| {
             if ts.len() > MAX_HASH_OCCURRENCES {
                 let stride = ts.len() as f64 / MAX_HASH_OCCURRENCES as f64;
-                ts = (0..MAX_HASH_OCCURRENCES).map(|i| ts[(i as f64 * stride) as usize]).collect();
+                ts = (0..MAX_HASH_OCCURRENCES)
+                    .map(|i| ts[(i as f64 * stride) as usize])
+                    .collect();
             }
             (h, ts)
         })
@@ -144,7 +146,11 @@ pub fn match_fingerprints(
             }
         }
     }
-    out.sort_by(|a, b| a.t_start.partial_cmp(&b.t_start).unwrap_or(std::cmp::Ordering::Equal));
+    out.sort_by(|a, b| {
+        a.t_start
+            .partial_cmp(&b.t_start)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     out
 }
 
@@ -220,5 +226,10 @@ fn score_run(
     if confidence < min_confidence {
         return None;
     }
-    Some(MatchSegment { track_id, t_start, t_end, confidence })
+    Some(MatchSegment {
+        track_id,
+        t_start,
+        t_end,
+        confidence,
+    })
 }

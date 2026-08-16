@@ -60,12 +60,18 @@ impl Db {
         let conn = &mut self.0;
         let tx = conn.transaction()?;
         let existing: Option<i64> = tx
-            .query_row("SELECT id FROM tracks WHERE path = ?1", params![path], |r| r.get(0))
+            .query_row(
+                "SELECT id FROM tracks WHERE path = ?1",
+                params![path],
+                |r| r.get(0),
+            )
             .ok();
         let id = match existing {
             Some(id) => {
-                tx.execute("UPDATE tracks SET title=?1, artist=?2, duration=?3 WHERE id=?4",
-                    params![title, artist, duration_s, id])?;
+                tx.execute(
+                    "UPDATE tracks SET title=?1, artist=?2, duration=?3 WHERE id=?4",
+                    params![title, artist, duration_s, id],
+                )?;
                 tx.execute("DELETE FROM hashes WHERE track_id = ?1", params![id])?;
                 id
             }
@@ -114,7 +120,9 @@ impl Db {
         };
         let mut out = Vec::with_capacity(ids.len());
         for id in ids {
-            let mut stmt = self.0.prepare("SELECT hash, t FROM hashes WHERE track_id = ?1")?;
+            let mut stmt = self
+                .0
+                .prepare("SELECT hash, t FROM hashes WHERE track_id = ?1")?;
             let rows = stmt.query_map(params![id], |r| {
                 Ok((r.get::<_, i64>(0)? as u32, r.get::<_, i64>(1)? as u32))
             })?;
@@ -128,7 +136,9 @@ impl Db {
     pub fn add_mix(&mut self, title: &str, path: &str, duration_s: f64) -> Result<i64> {
         let existing: Option<i64> = self
             .0
-            .query_row("SELECT id FROM mixes WHERE path = ?1", params![path], |r| r.get(0))
+            .query_row("SELECT id FROM mixes WHERE path = ?1", params![path], |r| {
+                r.get(0)
+            })
             .ok();
         Ok(match existing {
             Some(id) => {
@@ -149,7 +159,8 @@ impl Db {
     }
 
     pub fn clear_detections(&mut self, mix_id: i64) -> Result<()> {
-        self.0.execute("DELETE FROM detections WHERE mix_id = ?1", params![mix_id])?;
+        self.0
+            .execute("DELETE FROM detections WHERE mix_id = ?1", params![mix_id])?;
         Ok(())
     }
 

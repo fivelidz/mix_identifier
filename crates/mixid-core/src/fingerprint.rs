@@ -37,8 +37,8 @@ pub struct Fingerprint {
 /// Decode any supported audio file, downmix to mono f32 at TARGET_SR,
 /// and return (fingerprint, duration_seconds).
 pub fn fingerprint_file(path: &Path) -> Result<(Fingerprint, f64)> {
-    let (mono, sr) = decode_mono(path)
-        .with_context(|| format!("failed to decode {}", path.display()))?;
+    let (mono, sr) =
+        decode_mono(path).with_context(|| format!("failed to decode {}", path.display()))?;
     let duration = mono.len() as f64 / sr as f64;
     let samples = resample(&mono, sr, TARGET_SR);
     let fp = fingerprint_samples(&samples);
@@ -49,7 +49,12 @@ pub fn fingerprint_file(path: &Path) -> Result<(Fingerprint, f64)> {
 fn decode_mono(path: &Path) -> Result<(Vec<f32>, u32)> {
     let file = std::fs::File::open(path)?;
     let mss = MediaSourceStream::new(Box::new(file), Default::default());
-    let probed = get_probe().format(&Default::default(), mss, &Default::default(), &Default::default())?;
+    let probed = get_probe().format(
+        &Default::default(),
+        mss,
+        &Default::default(),
+        &Default::default(),
+    )?;
     let mut format = probed.format;
     let track = format
         .tracks()
@@ -57,7 +62,10 @@ fn decode_mono(path: &Path) -> Result<(Vec<f32>, u32)> {
         .find(|t| t.codec_params.codec != symphonia::core::codecs::CODEC_TYPE_NULL)
         .context("no audio track")?;
     let track_id = track.id;
-    let sr = track.codec_params.sample_rate.context("missing sample rate")?;
+    let sr = track
+        .codec_params
+        .sample_rate
+        .context("missing sample rate")?;
     let mut decoder = get_codecs().make(&track.codec_params, &DecoderOptions::default())?;
 
     let mut mono: Vec<f32> = Vec::new();

@@ -102,25 +102,29 @@ pub fn analyze_mix(
             min_duration_s,
         ));
     }
-    segments.sort_by(|a, b| a.t_start.partial_cmp(&b.t_start).unwrap_or(std::cmp::Ordering::Equal));
+    segments.sort_by(|a, b| {
+        a.t_start
+            .partial_cmp(&b.t_start)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
 
     // Deduplicate overlapping segments of the same track (keep higher confidence).
     let mut kept: Vec<matcher::MatchSegment> = Vec::new();
     for seg in segments {
-        let overlap = kept.iter().any(|k| k.track_id == seg.track_id && seg.t_start < k.t_end && k.t_start < seg.t_end);
+        let overlap = kept
+            .iter()
+            .any(|k| k.track_id == seg.track_id && seg.t_start < k.t_end && k.t_start < seg.t_end);
         if !overlap {
             kept.push(seg);
         }
     }
 
-    let title_s = title
-        .map(|s| s.to_string())
-        .unwrap_or_else(|| {
-            mix_path
-                .file_stem()
-                .map(|s| s.to_string_lossy().to_string())
-                .unwrap_or_else(|| "Untitled Mix".into())
-        });
+    let title_s = title.map(|s| s.to_string()).unwrap_or_else(|| {
+        mix_path
+            .file_stem()
+            .map(|s| s.to_string_lossy().to_string())
+            .unwrap_or_else(|| "Untitled Mix".into())
+    });
     let path_s = mix_path.display().to_string();
 
     let mix_id = db.add_mix(&title_s, &path_s, duration)?;
@@ -130,5 +134,10 @@ pub fn analyze_mix(
     }
 
     let detections = db.mix_tracklist(mix_id)?;
-    Ok(AnalysisResult { mix_id, title: title_s, duration, detections })
+    Ok(AnalysisResult {
+        mix_id,
+        title: title_s,
+        duration,
+        detections,
+    })
 }

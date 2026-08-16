@@ -237,7 +237,10 @@ async fn analyze(State(state): State<SharedState>, req: Request) -> Response {
                 );
             }
         };
-        let Some(path) = body.path.map(|p| p.trim().to_string()).filter(|p| !p.is_empty())
+        let Some(path) = body
+            .path
+            .map(|p| p.trim().to_string())
+            .filter(|p| !p.is_empty())
         else {
             return error_response(StatusCode::BAD_REQUEST, "JSON body must include 'path'");
         };
