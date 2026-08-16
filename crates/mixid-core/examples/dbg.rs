@@ -117,7 +117,7 @@ fn analyze_clusters(label: &str, mix: &mixid_core::Fingerprint, track: &mixid_co
         .into_iter()
         .map(|(o, (n, s))| (o, n, s.len()))
         .collect();
-    v.sort_by(|a, b| b.1.cmp(&a.1));
+    v.sort_by_key(|&(_, n, _)| std::cmp::Reverse(n));
     println!("\n{label}: top offset clusters (offset, votes, distinct):");
     for (o, n, d) in v.iter().take(8) {
         println!("  offset={:6} votes={:5} distinct={:4}", o, n, d);

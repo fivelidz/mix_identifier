@@ -45,7 +45,7 @@ fn main() {
         .map(|(o, (n, s))| (o, n, s.len(), Vec::new()))
         .collect();
     // recompute matched times for top clusters
-    v.sort_by(|a, b| b.2.cmp(&a.2));
+    v.sort_by_key(|&(_, _, d, _)| std::cmp::Reverse(d));
     v.truncate(5);
     for (o, votes_n, distinct, _) in v.iter_mut() {
         let mut times: Vec<i64> = Vec::new();
