@@ -4,7 +4,7 @@ use std::sync::Mutex;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State};
 
-use mixid_core::{AnalysisResult, DetectionRow, MixRow, TrackInMix, TrackRow};
+use mixid_core::{split_artist_title, AnalysisResult, DetectionRow, MixRow, TrackInMix, TrackRow};
 
 // ---------------------------------------------------------------------------
 // State: DB path resolved once (app_data_dir()/mixid.db), connection kept
@@ -146,13 +146,10 @@ fn collect_audio(dir: &Path, out: &mut Vec<PathBuf>) -> std::io::Result<()> {
     Ok(())
 }
 
-/// Split a filename stem into (artist, title) on the "Artist - Title"
-/// convention; no separator means unknown artist.
+/// Split a filename stem into (artist, title) — shared logic in mixid-core
+/// (handles the "NN - Artist - Title" DJ-pool convention).
 fn split_stem(stem: &str) -> (String, String) {
-    match stem.split_once(" - ") {
-        Some((a, t)) => (a.trim().to_string(), t.trim().to_string()),
-        None => (String::new(), stem.trim().to_string()),
-    }
+    split_artist_title(stem)
 }
 
 #[tauri::command]

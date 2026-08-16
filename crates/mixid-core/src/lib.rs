@@ -7,6 +7,9 @@
 pub mod db;
 pub mod fingerprint;
 pub mod matcher;
+pub mod names;
+
+pub use names::split_artist_title;
 
 use anyhow::Result;
 use serde::Serialize;

@@ -1,5 +1,7 @@
 # MixID — Shazam for DJ Mixes
 
+[![CI](https://github.com/fivelidz/mix_identifier/actions/workflows/ci.yml/badge.svg)](https://github.com/fivelidz/mix_identifier/actions/workflows/ci.yml)
+
 Identify which songs play in a DJ mix, and at what time. Search a song and
 find every mix that contains it. Pure Rust, works offline, ships as a CLI, a
 web server, and an Android app.

@@ -8,7 +8,7 @@
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use mixid_core::{analyze_mix, fingerprint_file, Db};
+use mixid_core::{analyze_mix, fingerprint_file, split_artist_title, Db};
 use std::path::{Path, PathBuf};
 
 const AUDIO_EXTS: &[&str] = &["mp3", "flac", "wav", "ogg", "m4a", "aac", "opus", "aiff"];
@@ -54,13 +54,6 @@ fn fmt_time(s: f64) -> String {
     format!("{:02}:{:02}", m, sec)
 }
 
-fn split_title(stem: &str) -> (String, String) {
-    match stem.split_once(" - ") {
-        Some((artist, title)) => (artist.trim().to_string(), title.trim().to_string()),
-        None => (String::new(), stem.to_string()),
-    }
-}
-
 fn collect_audio(dir: &Path, out: &mut Vec<PathBuf>) {
     let Ok(entries) = std::fs::read_dir(dir) else {
         return;
@@ -93,7 +86,7 @@ fn main() -> Result<()> {
             let mut failed: Vec<String> = Vec::new();
             for (i, f) in files.iter().enumerate() {
                 let stem = f.file_stem().and_then(|s| s.to_str()).unwrap_or("unknown");
-                let (artist, title) = split_title(stem);
+                let (artist, title) = split_artist_title(stem);
                 print!("[{}/{}] {} — {} ... ", i + 1, total, artist, title);
                 use std::io::Write;
                 let _ = std::io::stdout().flush();
