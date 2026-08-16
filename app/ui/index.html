@@ -1,475 +1,666 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>MixID — identify tracks in DJ mixes</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<title>MixID</title>
 <style>
-  :root{
-    --bg:#0e1116; --card:#151a21; --card2:#181e27; --border:#23272e;
-    --text:#e6e9ef; --muted:#8b93a1; --accent:#ff5500; --accent-h:#ff7a33;
-    --green:#22c55e; --amber:#f59e0b; --red:#ef4444;
-    --sat:env(safe-area-inset-top,0px); --sab:env(safe-area-inset-bottom,0px);
+  :root {
+    --bg: #0a0c11;
+    --panel: #131722;
+    --panel-2: #1a2030;
+    --border: #232b3d;
+    --text: #e9edf5;
+    --muted: #8b94a8;
+    --dim: #5a6377;
+    --accent: #7c5cff;
+    --accent-2: #00d4ff;
+    --good: #2fd471;
+    --warn: #ffb020;
+    --bad: #ff5470;
+    --radius: 14px;
+    --sab: env(safe-area-inset-bottom, 0px);
   }
-  *{box-sizing:border-box}
-  html,body{margin:0}
-  body{
-    background:var(--bg); color:var(--text); min-height:100vh;
-    font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-    -webkit-tap-highlight-color:transparent;
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "SF Pro Text", Inter, Roboto, "Segoe UI", sans-serif;
+    font-size: 15px;
+    line-height: 1.45;
+    overscroll-behavior: none;
+    display: flex; flex-direction: column;
   }
-  header{
-    position:sticky; top:0; z-index:5; background:rgba(14,17,22,.94); backdrop-filter:blur(6px);
-    border-bottom:1px solid var(--border); padding-top:var(--sat);
-  }
-  .brand{
-    display:flex; align-items:center; gap:10px; padding:14px 18px 0;
-    font-size:20px; font-weight:700; letter-spacing:.5px;
-  }
-  .brand .dot{width:12px;height:12px;border-radius:50%;background:var(--accent);
-    box-shadow:0 0 10px rgba(255,85,0,.7);flex:none}
-  .brand .tag{font-size:12px;font-weight:400;color:var(--muted);letter-spacing:0}
-  nav{display:flex;gap:4px;padding:8px 10px 0;overflow-x:auto}
-  .tab{
-    background:none;border:none;color:var(--muted);font:inherit;font-weight:600;
-    padding:12px 12px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;
-    min-height:44px;transition:color .15s,border-color .15s;flex:none;
-  }
-  .tab:hover{color:var(--text)}
-  .tab.active{color:var(--accent);border-bottom-color:var(--accent)}
-  main{max-width:680px;margin:0 auto;padding:20px 16px calc(40px + var(--sab))}
-  .panel{display:none}
-  .panel.active{display:block}
 
-  .card{
-    background:var(--card);border:1px solid var(--border);border-radius:14px;
-    padding:18px;margin-bottom:16px;
+  /* ---------- header ---------- */
+  header {
+    padding: 14px 18px 12px;
+    display: flex; align-items: center; gap: 10px;
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(180deg, #10141d 0%, var(--bg) 100%);
+    flex-shrink: 0;
   }
-  .muted{color:var(--muted)} .small{font-size:12.5px}
-  .empty{color:var(--muted);padding:22px 8px;text-align:center}
-
-  /* inputs & buttons — 44px+ touch targets */
-  input[type=text]{
-    width:100%;background:var(--bg);border:1px solid var(--border);border-radius:10px;
-    color:var(--text);padding:12px 13px;font:inherit;min-height:44px;transition:border-color .15s;
+  .logo {
+    width: 30px; height: 30px; border-radius: 9px;
+    background: conic-gradient(from 210deg, var(--accent), var(--accent-2), var(--accent));
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 18px rgba(124, 92, 255, .35);
+    flex-shrink: 0;
   }
-  input[type=text]::placeholder{color:#5b6270}
-  input[type=text]:focus{outline:none;border-color:var(--accent)}
-  button.primary{
-    background:var(--accent);color:#160d07;border:none;border-radius:10px;
-    padding:13px 20px;font:inherit;font-weight:700;cursor:pointer;min-height:44px;
-    width:100%;transition:background .15s;
+  .logo svg { width: 16px; height: 16px; }
+  header h1 { font-size: 17px; font-weight: 700; letter-spacing: .3px; }
+  header .sub { font-size: 11px; color: var(--muted); margin-top: -2px; }
+
+  /* ---------- main / tabs ---------- */
+  main { flex: 1; overflow-y: auto; padding: 16px 16px 28px; }
+  .tab-pane { display: none; animation: fade .18s ease; }
+  .tab-pane.active { display: block; }
+  @keyframes fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+  nav {
+    display: flex; flex-shrink: 0;
+    border-top: 1px solid var(--border);
+    background: #0d1017;
+    padding-bottom: var(--sab);
   }
-  button.primary:hover{background:var(--accent-h)}
-  button.primary:disabled{opacity:.45;cursor:default}
-  button.ghost{
-    background:none;border:1px solid var(--border);border-radius:10px;color:var(--muted);
-    padding:12px 14px;font:inherit;font-weight:600;cursor:pointer;min-height:44px;
-    width:100%;transition:color .15s,border-color .15s;
+  nav button {
+    flex: 1; background: none; border: none; color: var(--dim);
+    padding: 9px 0 8px; font-size: 10.5px; font-family: inherit; font-weight: 600;
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    cursor: pointer; transition: color .15s; min-height: 52px;
   }
-  button.ghost:hover{color:var(--text);border-color:var(--accent)}
-  .stack>*+*{margin-top:10px}
+  nav button svg { width: 21px; height: 21px; }
+  nav button.active { color: var(--accent-2); }
 
-  .status{margin-top:14px;color:var(--muted);min-height:22px}
-  .status.err{color:var(--red)}
-  .picked{
-    background:var(--bg);border:1px solid var(--border);border-radius:10px;
-    padding:10px 13px;color:var(--accent);font-weight:600;word-break:break-all;
-    font-size:13.5px;min-height:44px;display:flex;align-items:center;
+  /* ---------- shared components ---------- */
+  .card {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 14px; margin-bottom: 12px;
   }
-  .picked:empty{display:none}
-
-  .spin{
-    display:inline-block;width:16px;height:16px;border-radius:50%;
-    border:2px solid var(--border);border-top-color:var(--accent);
-    vertical-align:-3px;margin-right:8px;animation:spin .8s linear infinite;
+  .btn {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    width: 100%; padding: 13px; border: none; border-radius: 12px;
+    font-family: inherit; font-size: 15px; font-weight: 700; cursor: pointer;
+    transition: transform .1s, opacity .15s; min-height: 48px;
   }
-  @keyframes spin{to{transform:rotate(360deg)}}
-
-  /* progress bar (library indexing) */
-  .pbar{width:100%;height:8px;border-radius:4px;background:var(--border);overflow:hidden;margin-top:12px}
-  .pbar i{display:block;height:100%;background:var(--accent);border-radius:4px;transition:width .2s}
-  .pfile{margin-top:8px;color:var(--muted);font-size:12.5px;word-break:break-all;min-height:18px}
-
-  /* tracklist rows */
-  .tracks{margin-top:14px;border-top:1px solid var(--border)}
-  .trow{
-    display:flex;align-items:center;gap:12px;padding:12px 4px;min-height:48px;
-    border-bottom:1px solid var(--border);
+  .btn:active { transform: scale(.98); }
+  .btn:disabled { opacity: .45; cursor: default; }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent), #5a8bff);
+    color: #fff; box-shadow: 0 4px 20px rgba(124, 92, 255, .3);
   }
-  .tstart{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--muted);font-size:13px;min-width:46px;flex:none}
-  .tmain{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .tmain .artist{color:var(--muted)}
-  .conf{display:flex;align-items:center;gap:8px;flex:none}
-  .bar{width:64px;height:6px;border-radius:3px;background:var(--border);overflow:hidden;display:inline-block}
-  .bar i{display:block;height:100%;border-radius:3px}
-  .bar i.green{background:var(--green)} .bar i.amber{background:var(--amber)} .bar i.red{background:var(--red)}
-  .cval{font-size:12px;color:var(--muted);font-family:ui-monospace,Menlo,monospace;min-width:30px;text-align:right}
+  .btn-ghost {
+    background: var(--panel-2); color: var(--text); border: 1px solid var(--border);
+  }
+  input[type=text] {
+    width: 100%; padding: 12px 14px; border-radius: 12px;
+    background: var(--panel-2); border: 1px solid var(--border);
+    color: var(--text); font-family: inherit; font-size: 15px; outline: none;
+    min-height: 48px;
+  }
+  input[type=text]:focus { border-color: var(--accent); }
+  input[type=text]::placeholder { color: var(--dim); }
+  .hint { font-size: 12.5px; color: var(--muted); }
+  .pill {
+    display: inline-block; padding: 2px 9px; border-radius: 99px;
+    font-size: 11px; font-weight: 700; white-space: nowrap;
+  }
+  .pill-good { background: rgba(47, 212, 113, .14); color: var(--good); }
+  .pill-warn { background: rgba(255, 176, 32, .14); color: var(--warn); }
+  .pill-dim  { background: rgba(139, 148, 168, .14); color: var(--muted); }
 
-  .mixhead{display:flex;align-items:center;justify-content:space-between;gap:12px}
-  .mixtitle{font-size:17px;font-weight:700;word-break:break-word}
+  .empty {
+    text-align: center; padding: 44px 24px; color: var(--muted);
+  }
+  .empty .big { font-size: 38px; margin-bottom: 10px; opacity: .5; }
+  .empty h3 { color: var(--text); font-size: 15px; margin-bottom: 5px; }
+  .empty p { font-size: 13px; }
 
-  /* search */
-  .srow{border:1px solid var(--border);border-radius:11px;margin-top:10px;background:var(--card);
-    transition:border-color .15s}
-  .srow.open{border-color:rgba(255,85,0,.5)}
-  .shead{display:flex;align-items:center;gap:12px;padding:12px 14px;cursor:pointer;user-select:none;min-height:48px}
-  .shead .tmain{flex:1}
-  .badge{font-size:11.5px;font-weight:700;color:var(--accent);background:rgba(255,85,0,.1);
-    border-radius:20px;padding:3px 10px;white-space:nowrap;flex:none}
-  .chev{color:var(--muted);transition:transform .15s;flex:none}
-  .srow.open .chev{transform:rotate(180deg)}
-  .sbody{padding:2px 14px 12px 14px;border-top:1px solid var(--border)}
-  .mixline{padding:9px 0;color:var(--muted);border-bottom:1px dashed var(--border);font-size:14px}
-  .mixline:last-child{border-bottom:none}
-  .mixline .cval{display:inline}
+  /* ---------- analyze ---------- */
+  .dropzone {
+    border: 1.5px dashed var(--border); border-radius: var(--radius);
+    padding: 26px 18px; text-align: center; margin-bottom: 12px;
+    color: var(--muted); cursor: pointer; transition: border-color .15s, background .15s;
+  }
+  .dropzone:active { border-color: var(--accent); background: rgba(124, 92, 255, .06); }
+  .dropzone .big { font-size: 30px; margin-bottom: 8px; }
+  .dropzone .fname {
+    color: var(--accent-2); font-weight: 600; font-size: 13.5px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .spinner {
+    width: 34px; height: 34px; margin: 8px auto 10px;
+    border-radius: 50%; border: 3px solid var(--panel-2); border-top-color: var(--accent);
+    animation: spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .center { text-align: center; }
 
-  /* mixes grid */
-  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px}
-  .mcard{cursor:pointer;transition:transform .15s,border-color .15s;margin-bottom:0;padding:16px}
-  .mcard:hover{transform:translateY(-2px);border-color:rgba(255,85,0,.55)}
-  .mcardmeta{margin:6px 0 4px}
+  /* ---------- timeline ---------- */
+  .timeline {
+    height: 34px; border-radius: 9px; overflow: hidden;
+    background: var(--panel-2); display: flex; margin: 4px 0 6px;
+    border: 1px solid var(--border); position: relative;
+  }
+  .tl-seg { position: absolute; top: 0; bottom: 0; min-width: 3px; }
+  .tl-time {
+    display: flex; justify-content: space-between;
+    font-size: 10.5px; color: var(--dim); font-variant-numeric: tabular-nums;
+    margin-bottom: 10px;
+  }
 
-  .fail{margin-top:10px}
-  .fail summary{color:var(--amber);cursor:pointer;min-height:44px;display:flex;align-items:center}
-  .fail pre{white-space:pre-wrap;word-break:break-all;font-size:12px;color:var(--muted);
-    background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;margin:0}
+  /* ---------- tracklist rows ---------- */
+  .track {
+    display: flex; gap: 11px; align-items: center;
+    padding: 11px 4px; border-bottom: 1px solid var(--border);
+  }
+  .track:last-child { border-bottom: none; }
+  .track .num {
+    width: 26px; height: 26px; border-radius: 8px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11.5px; font-weight: 800; color: #0a0c11;
+  }
+  .track .meta { flex: 1; min-width: 0; }
+  .track .t-title {
+    font-weight: 650; font-size: 14.5px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .track .t-artist {
+    font-size: 12.5px; color: var(--muted);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .track .t-time {
+    font-size: 11.5px; color: var(--dim); font-variant-numeric: tabular-nums;
+    text-align: right; flex-shrink: 0;
+  }
+  .confbar {
+    width: 34px; height: 4px; border-radius: 2px;
+    background: var(--panel-2); overflow: hidden; margin-top: 4px; margin-left: auto;
+  }
+  .confbar i { display: block; height: 100%; border-radius: 2px; }
+
+  /* ---------- mixes list ---------- */
+  .mixrow {
+    display: flex; align-items: center; gap: 12px;
+    padding: 13px 4px; border-bottom: 1px solid var(--border); cursor: pointer;
+  }
+  .mixrow:last-child { border-bottom: none; }
+  .mixrow .dur {
+    font-size: 11px; font-weight: 700; color: var(--accent-2);
+    background: rgba(0, 212, 255, .1); padding: 3px 8px; border-radius: 7px;
+    font-variant-numeric: tabular-nums; flex-shrink: 0;
+  }
+  .mixrow .meta { flex: 1; min-width: 0; }
+  .mixrow .m-title { font-weight: 650; font-size: 14.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mixrow .m-sub { font-size: 12px; color: var(--muted); }
+  .chev { color: var(--dim); flex-shrink: 0; }
+
+  /* ---------- search ---------- */
+  .searchrow { padding: 12px 4px; border-bottom: 1px solid var(--border); }
+  .searchrow:last-child { border-bottom: none; }
+  .sr-head { display: flex; align-items: center; gap: 10px; }
+  .sr-head .meta { flex: 1; min-width: 0; }
+  .appear {
+    margin-top: 9px; padding: 8px 11px;
+    background: var(--panel-2); border-radius: 10px; font-size: 12.5px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .appear .at { color: var(--accent-2); font-variant-numeric: tabular-nums; font-weight: 650; white-space: nowrap; }
+  .appear .mx { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* ---------- progress ---------- */
+  .pbar {
+    height: 7px; border-radius: 4px; background: var(--panel-2);
+    overflow: hidden; margin: 10px 0 8px;
+  }
+  .pbar i {
+    display: block; height: 100%; border-radius: 4px;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    transition: width .25s ease;
+  }
+  .pfile {
+    font-size: 11.5px; color: var(--dim);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+
+  /* ---------- detail (push view) ---------- */
+  #detail { position: fixed; inset: 0; background: var(--bg); z-index: 50; display: none; flex-direction: column; }
+  #detail.open { display: flex; }
+  #detail .dhead {
+    display: flex; align-items: center; gap: 10px;
+    padding: 14px 14px 12px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  #detail .dhead .meta { flex: 1; min-width: 0; }
+  #detail .dhead h2 { font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #detail .dbody { flex: 1; overflow-y: auto; padding: 16px; }
+  .backbtn {
+    background: var(--panel-2); border: 1px solid var(--border); color: var(--text);
+    width: 34px; height: 34px; border-radius: 10px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+
+  /* ---------- toast ---------- */
+  #toast {
+    position: fixed; left: 50%; bottom: calc(84px + var(--sab)); transform: translateX(-50%) translateY(20px);
+    background: #1c2233; border: 1px solid var(--border); color: var(--text);
+    padding: 10px 16px; border-radius: 12px; font-size: 13px; max-width: 86%;
+    opacity: 0; pointer-events: none; transition: all .25s ease; z-index: 99;
+    box-shadow: 0 8px 30px rgba(0,0,0,.5);
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  #toast.err { border-color: rgba(255, 84, 112, .5); }
+
+  .banner {
+    background: rgba(255, 176, 32, .1); border: 1px solid rgba(255, 176, 32, .35);
+    color: var(--warn); font-size: 12.5px; padding: 9px 12px; border-radius: 10px;
+    margin-bottom: 12px;
+  }
+  .section-label {
+    font-size: 11px; font-weight: 700; letter-spacing: 1.2px;
+    color: var(--dim); text-transform: uppercase; margin: 4px 2px 10px;
+  }
 </style>
 </head>
 <body>
 
 <header>
-  <div class="brand"><span class="dot"></span>mixid <span class="tag">— Shazam for DJ mixes</span></div>
-  <nav>
-    <button class="tab active" data-tab="analyze">Analyze</button>
-    <button class="tab" data-tab="library">Library</button>
-    <button class="tab" data-tab="search">Search</button>
-    <button class="tab" data-tab="mixes">Mixes</button>
-  </nav>
+  <div class="logo">
+    <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round">
+      <path d="M4 12h2.5l2-6 3 12 2.5-8 1.8 4H20"/>
+    </svg>
+  </div>
+  <div>
+    <h1>MixID</h1>
+    <div class="sub">identify tracks in DJ mixes</div>
+  </div>
 </header>
 
-<main>
-  <!-- Analyze -->
-  <section id="tab-analyze" class="panel active">
-    <div class="card stack">
-      <button id="pick-mix-btn" class="ghost">🎵&nbsp; Pick mix file…</button>
-      <div id="mix-path" class="picked"></div>
-      <input type="text" id="analyze-path" placeholder="…or type a file path directly" spellcheck="false" autocapitalize="off">
-      <input type="text" id="analyze-title" placeholder="Mix title (optional)">
-      <button id="analyze-btn" class="primary">Identify tracks</button>
-      <div id="analyze-status" class="status"></div>
+<main id="main">
+
+  <!-- ================= ANALYZE ================= -->
+  <section class="tab-pane active" id="pane-analyze">
+    <div id="no-tauri" class="banner" style="display:none">
+      Not running inside Tauri — file picking and analysis are unavailable.
     </div>
-    <div id="analyze-result"></div>
+
+    <div id="analyze-idle">
+      <div class="dropzone" id="dropzone">
+        <div class="big">🎧</div>
+        <div id="dz-label"><b>Pick a mix file</b><br><span class="hint">mp3 · flac · wav · ogg · m4a</span></div>
+      </div>
+      <input type="text" id="mix-title" placeholder="Mix name (optional)">
+      <button class="btn btn-primary" id="btn-analyze" style="display:none; margin-top:12px">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        Identify tracks
+      </button>
+    </div>
+
+    <div id="analyze-busy" style="display:none" class="card center">
+      <div class="spinner"></div>
+      <b id="busy-title">Analyzing…</b>
+      <div class="hint" style="margin-top:4px">fingerprinting &amp; matching against your library</div>
+    </div>
+
+    <div id="analyze-result" style="display:none"></div>
   </section>
 
-  <!-- Library -->
-  <section id="tab-library" class="panel">
-    <div class="card stack">
-      <div class="muted small">Index your music folder first — each track is fingerprinted so mixes can be identified against it.</div>
-      <button id="pick-folder-btn" class="ghost">📁&nbsp; Pick music folder…</button>
-      <div id="folder-path" class="picked"></div>
-      <input type="text" id="folder-input" placeholder="…or type a folder path directly" spellcheck="false" autocapitalize="off">
-      <button id="index-btn" class="primary">Index folder</button>
-      <div id="index-status" class="status"></div>
-      <div class="pbar" id="index-bar-wrap" hidden><i id="index-bar" style="width:0%"></i></div>
-      <div class="pfile" id="index-file"></div>
-      <div id="index-result"></div>
-    </div>
-  </section>
-
-  <!-- Search -->
-  <section id="tab-search" class="panel">
+  <!-- ================= LIBRARY ================= -->
+  <section class="tab-pane" id="pane-library">
     <div class="card">
-      <input type="text" id="search-input" placeholder="Search tracks by title or artist…" autocomplete="off" spellcheck="false" autocapitalize="off">
-      <div id="search-results"><div class="empty">Type a song or artist name</div></div>
+      <div class="section-label">Your music library</div>
+      <p class="hint" style="margin-bottom:12px">
+        Pick the folder where your music lives. Every track gets fingerprinted so
+        mixes can be identified against it. Re-indexing is safe — existing tracks are updated.
+      </p>
+      <button class="btn btn-primary" id="btn-index">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/></svg>
+        Choose folder &amp; index
+      </button>
     </div>
+
+    <div id="index-progress-card" class="card" style="display:none">
+      <div class="section-label">Indexing</div>
+      <div class="pbar"><i id="index-bar" style="width:0%"></i></div>
+      <div style="display:flex;justify-content:space-between">
+        <span class="hint" id="index-count">0 / 0</span>
+        <span class="hint" id="index-eta"></span>
+      </div>
+      <div class="pfile" id="index-file" style="margin-top:6px"></div>
+    </div>
+
+    <div id="index-done" style="display:none"></div>
   </section>
 
-  <!-- Mixes -->
-  <section id="tab-mixes" class="panel">
-    <div id="mixes-list" class="grid"></div>
-    <div id="mix-detail" hidden></div>
+  <!-- ================= SEARCH ================= -->
+  <section class="tab-pane" id="pane-search">
+    <input type="text" id="search-input" placeholder="Search a song — find every mix with it">
+    <div id="search-results" style="margin-top:12px"></div>
   </section>
+
+  <!-- ================= MIXES ================= -->
+  <section class="tab-pane" id="pane-mixes">
+    <div id="mixes-list"></div>
+  </section>
+
 </main>
 
-<script>
-"use strict";
-const $  = (s, el=document) => el.querySelector(s);
-const $$ = (s, el=document) => [...el.querySelectorAll(s)];
+<!-- ============ mix detail push view ============ -->
+<div id="detail">
+  <div class="dhead">
+    <button class="backbtn" id="detail-back">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M15 5l-7 7 7 7"/></svg>
+    </button>
+    <div class="meta">
+      <h2 id="detail-title">Mix</h2>
+      <div class="hint" id="detail-sub"></div>
+    </div>
+  </div>
+  <div class="dbody" id="detail-body"></div>
+</div>
 
-/* ---------- Tauri bridge ---------- */
+<nav>
+  <button class="active" data-tab="analyze">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 18V6l10-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/></svg>
+    Analyze
+  </button>
+  <button data-tab="library">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/></svg>
+    Library
+  </button>
+  <button data-tab="search">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+    Search
+  </button>
+  <button data-tab="mixes">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 12h2.5l2-6 3 12 2.5-8 1.8 4H20"/></svg>
+    Mixes
+  </button>
+</nav>
+
+<div id="toast"></div>
+
+<script>
 const TAURI = window.__TAURI__;
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c =>
+  ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+
+if (!TAURI) $("no-tauri").style.display = "";
+
 const invoke = (cmd, args) => TAURI.core.invoke(cmd, args);
 const pickFile = () => TAURI.dialog.open({ multiple: false });
 const pickFolder = () => TAURI.dialog.open({ multiple: false, directory: true });
 
-/* ---------- helpers ---------- */
+// ---------- helpers ----------
 const fmtTime = s => {
-  s = Math.max(0, Math.floor(Number(s) || 0));
-  return String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
+  s = Math.max(0, Math.round(s));
+  const m = Math.floor(s / 60), sec = s % 60;
+  return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
 };
-const fmtDate = v => {
-  if (v === null || v === undefined || v === "") return "";
-  const d = typeof v === "number" ? new Date(v * 1000) : new Date(v);
-  return isNaN(d) ? String(v)
-    : d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+const fmtDur = s => {
+  s = Math.round(s);
+  const h = Math.floor(s / 3600), m = Math.round((s % 3600) / 60);
+  return h > 0 ? `${h}h ${m}m` : `${m} min`;
 };
-const confClass = c => c > 0.6 ? "green" : c > 0.4 ? "amber" : "red";
-const esc = s => String(s ?? "").replace(/[&<>"']/g,
-  m => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[m]));
-const onePath = r => Array.isArray(r) ? (r[0] ?? null) : r;
+// distinct hue per track index — DJ palette
+const segColor = i => `hsl(${(i * 47 + 262) % 360} 85% 60%)`;
+const confPill = c =>
+  c >= 0.8 ? `<span class="pill pill-good">${c.toFixed(2)}</span>`
+  : c >= 0.5 ? `<span class="pill pill-warn">${c.toFixed(2)}</span>`
+  : `<span class="pill pill-dim">${c.toFixed(2)}</span>`;
+const confColor = c => c >= 0.8 ? "var(--good)" : c >= 0.5 ? "var(--warn)" : "var(--dim)";
 
-if (!TAURI) {
-  document.body.insertAdjacentHTML("afterbegin",
-    '<div style="background:#7a1f1f;color:#fff;padding:10px 16px;font-size:13px">' +
-    "Not running inside Tauri — invoke() calls will fail.</div>");
+let toastTimer;
+function toast(msg, isErr = false) {
+  const t = $("toast");
+  t.textContent = msg;
+  t.className = isErr ? "err show" : "show";
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove("show"), 3200);
 }
 
-/* ---------- tabs ---------- */
-$$(".tab").forEach(t => t.addEventListener("click", () => {
-  $$(".tab").forEach(x => x.classList.toggle("active", x === t));
-  $$(".panel").forEach(p => p.classList.toggle("active", p.id === "tab-" + t.dataset.tab));
-  if (t.dataset.tab === "mixes") loadMixes();
-}));
-
-/* ---------- shared tracklist renderer ---------- */
-function tracklistHTML(rows) {
-  if (!rows || !rows.length) return '<div class="empty">No tracks identified.</div>';
-  return '<div class="tracks">' + rows.map(t => {
-    const c = Number(t.confidence) || 0;
-    return `<div class="trow">
-      <span class="tstart">${fmtTime(t.t_start)}</span>
-      <span class="tmain">${esc(t.title)}<span class="artist">${t.artist ? " — " + esc(t.artist) : ""}</span></span>
-      <span class="conf"><span class="bar"><i class="${confClass(c)}"
-        style="width:${Math.min(100, c * 100).toFixed(1)}%"></i></span>
-        <span class="cval">${c.toFixed(2)}</span></span>
-    </div>`;
-  }).join("") + "</div>";
+// timeline + tracklist block, shared by analyze result & mix detail.
+// Segments are positioned absolutely by % of mix duration.
+function tracklistHTML(detections, mixDuration) {
+  const segs = detections.map((d, i) => {
+    const left = Math.min(99.5, (d.t_start / mixDuration) * 100);
+    const width = Math.max(0.5, ((d.t_end - d.t_start) / mixDuration) * 100);
+    return `<div class="tl-seg" title="${esc(d.title)}" style="left:${left}%; width:${width}%; background:${segColor(i)}"></div>`;
+  }).join("");
+  const rows = detections.map((d, i) => `
+    <div class="track">
+      <div class="num" style="background:${segColor(i)}">${i + 1}</div>
+      <div class="meta">
+        <div class="t-title">${esc(d.title)}</div>
+        <div class="t-artist">${esc(d.artist) || "<span style='opacity:.4'>unknown artist</span>"}</div>
+      </div>
+      <div class="t-time">
+        ${fmtTime(d.t_start)} – ${fmtTime(d.t_end)}
+        <div class="confbar"><i style="width:${Math.round(d.confidence * 100)}%; background:${confColor(d.confidence)}"></i></div>
+      </div>
+    </div>`).join("");
+  return `
+    <div class="timeline">${segs}</div>
+    <div class="tl-time"><span>00:00</span><span>${fmtTime(mixDuration)}</span></div>
+    ${rows}`;
 }
 
-/* ---------- Analyze tab ---------- */
-let pickedMixPath = null;
-
-$("#pick-mix-btn").addEventListener("click", async () => {
-  try {
-    const p = onePath(await pickFile());
-    if (p) {
-      pickedMixPath = p;
-      $("#mix-path").textContent = p;
-      $("#analyze-path").value = "";
-    }
-  } catch (e) { $("#analyze-status").className = "status err"; $("#analyze-status").textContent = String(e); }
+// ---------- tabs ----------
+document.querySelectorAll("nav button").forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll("nav button").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".tab-pane").forEach(p => p.classList.remove("active"));
+    btn.classList.add("active");
+    $(`pane-${btn.dataset.tab}`).classList.add("active");
+    if (btn.dataset.tab === "mixes") loadMixes();
+  };
 });
 
-$("#analyze-path").addEventListener("input", e => { pickedMixPath = null; $("#mix-path").textContent = ""; });
+// ---------- ANALYZE ----------
+let pickedPath = null;
 
-$("#analyze-btn").addEventListener("click", async () => {
-  const btn = $("#analyze-btn"), status = $("#analyze-status");
-  const title = $("#analyze-title").value.trim();
-  const path = pickedMixPath || $("#analyze-path").value.trim();
-  status.className = "status"; status.textContent = "";
-  $("#analyze-result").innerHTML = "";
-
-  if (!path) {
-    status.className = "status err";
-    status.textContent = "Pick a mix file first.";
-    return;
-  }
-
-  btn.disabled = true;
-  status.innerHTML = '<span class="spin"></span>Analyzing… long mixes can take a few minutes.';
+$("dropzone").onclick = async () => {
+  if (!TAURI) return;
   try {
-    const res = await invoke("analyze_path", { path, title: title || null });
-    status.textContent = "";
-    const dets = res.detections || [];
-    $("#analyze-result").innerHTML = `
-      <div class="card">
-        <div class="mixhead">
-          <div>
-            <div class="mixtitle">${esc(res.title || "Untitled mix")}</div>
-            <div class="muted small">${fmtTime(res.duration)} · ${dets.length}
-              track${dets.length === 1 ? "" : "s"} identified</div>
-          </div>
-        </div>
-        ${tracklistHTML(dets)}
-      </div>`;
-    mixesCache = null;
+    const f = await pickFile();
+    if (!f) return;
+    pickedPath = f;
+    $("dz-label").innerHTML = `<div class="fname">${esc(f.split("/").pop())}</div><span class="hint">tap to change</span>`;
+    $("btn-analyze").style.display = "flex";
+  } catch (e) { toast(String(e), true); }
+};
+
+$("btn-analyze").onclick = async () => {
+  if (!pickedPath) return;
+  $("analyze-idle").style.display = "none";
+  $("analyze-result").style.display = "none";
+  $("analyze-busy").style.display = "block";
+  const t0 = Date.now();
+  try {
+    const title = $("mix-title").value.trim() || null;
+    const res = await invoke("analyze_path", { path: pickedPath, title });
+    renderAnalyzeResult(res, ((Date.now() - t0) / 1000).toFixed(1));
   } catch (e) {
-    status.className = "status err";
-    status.textContent = String(e);
+    toast(String(e), true);
+    $("analyze-idle").style.display = "block";
   } finally {
-    btn.disabled = false;
+    $("analyze-busy").style.display = "none";
   }
-});
+};
 
-/* ---------- Library tab ---------- */
-let pickedFolderPath = null;
+function renderAnalyzeResult(res, secs) {
+  const n = res.detections.length;
+  const el = $("analyze-result");
+  el.innerHTML = `
+    <div class="card">
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px">
+        <div style="flex:1; min-width:0">
+          <div style="font-weight:700; font-size:16px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">${esc(res.title)}</div>
+          <div class="hint">${fmtDur(res.duration)} · ${n} track${n === 1 ? "" : "s"} identified${secs ? ` · ${secs}s` : ""}</div>
+        </div>
+        ${n ? confPill(res.detections.reduce((a, d) => Math.max(a, d.confidence), 0)) : ""}
+      </div>
+      ${n ? tracklistHTML(res.detections, res.duration) : `
+        <div class="empty">
+          <div class="big">🤷</div>
+          <h3>No tracks identified</h3>
+          <p>None of your indexed library tracks matched this mix.<br>Index more music in the Library tab.</p>
+        </div>`}
+    </div>
+    <button class="btn btn-ghost" id="btn-again">Analyze another mix</button>`;
+  el.style.display = "block";
+  $("btn-again").onclick = resetAnalyze;
+}
+
+function resetAnalyze() {
+  $("analyze-result").style.display = "none";
+  $("analyze-idle").style.display = "block";
+  pickedPath = null;
+  $("btn-analyze").style.display = "none";
+  $("dz-label").innerHTML = `<b>Pick a mix file</b><br><span class="hint">mp3 · flac · wav · ogg · m4a</span>`;
+  $("mix-title").value = "";
+}
+
+// ---------- LIBRARY ----------
 let unlistenIndex = null;
 
-$("#pick-folder-btn").addEventListener("click", async () => {
-  try {
-    const p = onePath(await pickFolder());
-    if (p) {
-      pickedFolderPath = p;
-      $("#folder-path").textContent = p;
-      $("#folder-input").value = "";
-    }
-  } catch (e) { $("#index-status").className = "status err"; $("#index-status").textContent = String(e); }
-});
+$("btn-index").onclick = async () => {
+  if (!TAURI) return;
+  let folder;
+  try { folder = await pickFolder(); } catch (e) { toast(String(e), true); return; }
+  if (!folder) return;
 
-$("#folder-input").addEventListener("input", () => { pickedFolderPath = null; $("#folder-path").textContent = ""; });
+  $("btn-index").disabled = true;
+  $("index-done").style.display = "none";
+  $("index-progress-card").style.display = "block";
+  $("index-bar").style.width = "0%";
+  const t0 = Date.now();
 
-$("#index-btn").addEventListener("click", async () => {
-  const btn = $("#index-btn"), status = $("#index-status");
-  const path = pickedFolderPath || $("#folder-input").value.trim();
-  status.className = "status"; status.textContent = "";
-  $("#index-result").innerHTML = "";
-
-  if (!path) {
-    status.className = "status err";
-    status.textContent = "Pick a music folder first.";
-    return;
-  }
-
-  btn.disabled = true;
-  $("#index-bar-wrap").hidden = false;
-  $("#index-bar").style.width = "0%";
-  status.innerHTML = '<span class="spin"></span>Counting audio files…';
-
-  if (unlistenIndex) { try { unlistenIndex(); } catch {} }
-  if (TAURI.event) {
-    unlistenIndex = await TAURI.event.listen("index-progress", ev => {
-      const { done, total, file } = ev.payload || {};
-      if (total > 0) $("#index-bar").style.width = (done / total * 100).toFixed(1) + "%";
-      $("#index-file").textContent = file || "";
-      status.innerHTML = `<span class="spin"></span>Indexing ${done}/${total}…`;
-    });
+  if (TAURI.event && unlistenIndex === null) {
+    try {
+      unlistenIndex = await TAURI.event.listen("index-progress", ev => {
+        const { done, total, file } = ev.payload;
+        $("index-bar").style.width = total ? `${(done / total) * 100}%` : "0%";
+        $("index-count").textContent = `${done} / ${total}`;
+        const el = (Date.now() - t0) / 1000;
+        $("index-eta").textContent = done > 0 ? `~${Math.max(0, Math.round(el / done * (total - done)))}s left` : "";
+        $("index-file").textContent = file ? file.split("/").pop() : "";
+      });
+    } catch {}
   }
 
   try {
-    const res = await invoke("index_folder", { path });
-    status.textContent = "";
-    const failedHTML = res.failed.length
-      ? `<details class="fail"><summary>${res.failed.length} file${res.failed.length === 1 ? "" : "s"} failed</summary>` +
-        `<pre>${esc(res.failed.join("\n"))}</pre></details>`
-      : "";
-    $("#index-result").innerHTML = `
-      <div class="card" style="margin-top:14px">
-        <div class="mixtitle">✅ Indexed ${res.indexed} track${res.indexed === 1 ? "" : "s"}</div>
-        <div class="muted small" style="margin-top:4px">Library is ready — go identify a mix.</div>
-        ${failedHTML}
+    const res = await invoke("index_folder", { path: folder });
+    const secs = Math.round((Date.now() - t0) / 1000);
+    $("index-done").innerHTML = `
+      <div class="card">
+        <div class="section-label">Done</div>
+        <div style="font-size:15px"><b style="color:var(--good)">${res.indexed}</b> tracks indexed in ${secs}s</div>
+        ${res.failed.length ? `
+          <details style="margin-top:10px">
+            <summary class="hint" style="cursor:pointer">${res.failed.length} failed — view</summary>
+            <div style="margin-top:8px; font-size:12px; color:var(--muted)">${res.failed.map(f => `<div style="padding:3px 0; word-break:break-all">${esc(f)}</div>`).join("")}</div>
+          </details>` : ""}
       </div>`;
+    $("index-done").style.display = "block";
+    toast(`Indexed ${res.indexed} track${res.indexed === 1 ? "" : "s"} ✅`);
   } catch (e) {
-    status.className = "status err";
-    status.textContent = String(e);
+    toast(String(e), true);
   } finally {
-    btn.disabled = false;
-    if (unlistenIndex) { try { unlistenIndex(); } catch {} unlistenIndex = null; }
+    $("btn-index").disabled = false;
+    $("index-progress-card").style.display = "none";
   }
-});
+};
 
-/* ---------- Search tab ---------- */
-let searchTimer = null;
-$("#search-input").addEventListener("input", e => {
+// ---------- SEARCH ----------
+let searchTimer;
+$("search-input").oninput = () => {
   clearTimeout(searchTimer);
-  const q = e.target.value.trim();
-  if (!q) {
-    $("#search-results").innerHTML = '<div class="empty">Type a song or artist name</div>';
-    return;
-  }
-  searchTimer = setTimeout(() => doSearch(q), 300);
-});
+  searchTimer = setTimeout(runSearch, 250);
+};
 
-async function doSearch(q) {
-  const box = $("#search-results");
-  box.innerHTML = '<div class="empty"><span class="spin"></span>Searching…</div>';
+async function runSearch() {
+  const q = $("search-input").value.trim();
+  const box = $("search-results");
+  if (!q) { box.innerHTML = ""; return; }
+  if (!TAURI) return;
   try {
     const results = await invoke("search_tracks", { q });
     if (!results.length) {
-      box.innerHTML = `<div class="empty">No matches for “${esc(q)}”.</div>`;
+      box.innerHTML = `
+        <div class="empty">
+          <div class="big">🔍</div>
+          <h3>Nothing found</h3>
+          <p>No indexed track matches “${esc(q)}”.</p>
+        </div>`;
       return;
     }
     box.innerHTML = results.map(r => {
-      const t = r.track, mixes = r.mixes || [];
-      const n = mixes.length;
-      return `<div class="srow">
-        <div class="shead">
-          <span class="tmain">${esc(t.title)}${t.artist ? `<span class="artist"> — ${esc(t.artist)}</span>` : ""}</span>
-          <span class="badge">${n} mix${n === 1 ? "" : "es"}</span>
-          <span class="chev">▾</span>
-        </div>
-        <div class="sbody" hidden>
-          ${mixes.map(m => `<div class="mixline">${esc(m.mix_title)} — plays at
-            ${fmtTime(m.t_start)}–${fmtTime(m.t_end)}
-            <span class="cval">${(Number(m.confidence) || 0).toFixed(2)}</span></div>`).join("")
-            || '<div class="muted small">Not in any analyzed mix yet.</div>'}
-        </div>
-      </div>`;
+      const t = r.track;
+      const apps = r.mixes.map(m => `
+        <div class="appear">
+          <span class="at">${fmtTime(m.t_start)}–${fmtTime(m.t_end)}</span>
+          <span class="mx">${esc(m.mix_title)}</span>
+          ${confPill(m.confidence)}
+        </div>`).join("");
+      return `
+        <div class="card searchrow">
+          <div class="sr-head">
+            <div class="meta">
+              <div class="t-title">${esc(t.title)}</div>
+              <div class="t-artist">${esc(t.artist) || "<span style='opacity:.4'>unknown artist</span>"} · ${fmtDur(t.duration)}</div>
+            </div>
+            <span class="pill ${t.mix_count > 0 ? "pill-good" : "pill-dim"}">${t.mix_count} mix${t.mix_count === 1 ? "" : "es"}</span>
+          </div>
+          ${apps || `<div class="hint" style="margin-top:8px">not in any analyzed mix yet</div>`}
+        </div>`;
     }).join("");
-    $$(".srow", box).forEach(row =>
-      $(".shead", row).addEventListener("click", () => {
-        const b = $(".sbody", row);
-        b.hidden = !b.hidden;
-        row.classList.toggle("open", !b.hidden);
-      }));
-  } catch (e) {
-    box.innerHTML = `<div class="empty" style="color:var(--red)">${esc(String(e))}</div>`;
-  }
+  } catch (e) { toast(String(e), true); }
 }
 
-/* ---------- Mixes tab ---------- */
-let mixesCache = null;
-function loadMixes(force) {
-  if (mixesCache && !force) { renderMixes(mixesCache); return; }
-  const list = $("#mixes-list");
-  $("#mix-detail").hidden = true;
-  list.hidden = false;
-  list.innerHTML = '<div class="empty"><span class="spin"></span>Loading…</div>';
-  invoke("list_mixes")
-    .then(mixes => { mixesCache = mixes; renderMixes(mixes); })
-    .catch(e => { list.innerHTML = `<div class="empty" style="color:var(--red)">${esc(String(e))}</div>`; });
-}
-
-function renderMixes(mixes) {
-  const list = $("#mixes-list");
-  if (!mixes.length) {
-    list.innerHTML = '<div class="empty">No mixes analyzed yet — analyze one in the Analyze tab.</div>';
-    return;
-  }
-  list.innerHTML = mixes.map(m => `
-    <div class="card mcard" data-id="${m.id}">
-      <div class="mixtitle">${esc(m.title || "Untitled mix")}</div>
-      <div class="mcardmeta muted">${fmtTime(m.duration)} · ${m.track_count}
-        track${m.track_count === 1 ? "" : "s"}</div>
-      <div class="muted small">added ${fmtDate(m.added_at)}</div>
-    </div>`).join("");
-  $$(".mcard", list).forEach(c => c.addEventListener("click", () => openMix(c.dataset.id)));
+// ---------- MIXES ----------
+async function loadMixes() {
+  if (!TAURI) return;
+  const box = $("mixes-list");
+  try {
+    const mixes = await invoke("list_mixes");
+    if (!mixes.length) {
+      box.innerHTML = `
+        <div class="empty">
+          <div class="big">🎚️</div>
+          <h3>No mixes analyzed yet</h3>
+          <p>Head to the Analyze tab and identify your first mix.</p>
+        </div>`;
+      return;
+    }
+    box.innerHTML = mixes.map(m => `
+      <div class="card mixrow" data-mix="${m.id}">
+        <span class="dur">${fmtDur(m.duration)}</span>
+        <div class="meta">
+          <div class="m-title">${esc(m.title)}</div>
+          <div class="m-sub">${m.track_count} tracks · ${esc(m.added_at)}</div>
+        </div>
+        <svg class="chev" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg>
+      </div>`).join("");
+    box.querySelectorAll(".mixrow").forEach(row => {
+      row.onclick = () => openMix(Number(row.dataset.mix));
+    });
+  } catch (e) { toast(String(e), true); }
 }
 
 async function openMix(id) {
-  const detail = $("#mix-detail");
-  $("#mixes-list").hidden = true;
-  detail.hidden = false;
-  detail.innerHTML = '<div class="empty"><span class="spin"></span>Loading…</div>';
   try {
-    const { mix, tracklist } = await invoke("get_mix", { id: Number(id) });
-    detail.innerHTML = `
-      <button class="ghost" id="back-btn" style="margin-bottom:14px">← All mixes</button>
-      <div class="card">
-        <div class="mixtitle">${esc(mix.title || "Untitled mix")}</div>
-        <div class="muted small" style="margin:4px 0 6px">${fmtTime(mix.duration)} ·
-          ${tracklist.length} track${tracklist.length === 1 ? "" : "s"} ·
-          added ${fmtDate(mix.added_at)}</div>
-        ${tracklistHTML(tracklist)}
-      </div>`;
-    $("#back-btn").addEventListener("click", () => {
-      detail.hidden = true;
-      $("#mixes-list").hidden = false;
-    });
-  } catch (e) {
-    detail.innerHTML = `<div class="empty" style="color:var(--red)">${esc(String(e))}</div>`;
-  }
+    const { mix, tracklist } = await invoke("get_mix", { id });
+    $("detail-title").textContent = mix.title;
+    $("detail-sub").textContent = `${fmtDur(mix.duration)} · ${tracklist.length} tracks · ${mix.added_at}`;
+    $("detail-body").innerHTML = tracklist.length
+      ? tracklistHTML(tracklist, mix.duration)
+      : `<div class="empty"><div class="big">🤷</div><h3>No detections stored</h3></div>`;
+    $("detail").classList.add("open");
+  } catch (e) { toast(String(e), true); }
 }
+$("detail-back").onclick = () => $("detail").classList.remove("open");
 </script>
 </body>
 </html>
