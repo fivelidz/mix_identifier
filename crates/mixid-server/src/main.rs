@@ -83,7 +83,8 @@ async fn run() -> anyhow::Result<()> {
         .route("/", get(root))
         .route("/api/health", get(health))
         .route("/api/mixes", get(list_mixes))
-        .route("/api/mixes/{id}", get(get_mix))
+        .route("/api/mixes/{id}", get(get_mix).delete(delete_mix))
+        .route("/api/mixes/{id}/export", get(export_mix))
         .route("/api/tracks", get(list_tracks))
         .route("/api/tracks/search", get(search_tracks))
         .route("/api/analyze", post(analyze))
@@ -150,8 +151,8 @@ async fn list_mixes(State(state): State<SharedState>) -> Response {
 
 async fn get_mix(State(state): State<SharedState>, AxPath(id): AxPath<i64>) -> Response {
     let db = state.db.lock().await;
-    let mix = match db.mixes() {
-        Ok(mixes) => mixes.into_iter().find(|m| m.id == id),
+    let mix = match db.get_mix(id) {
+        Ok(m) => m,
         Err(e) => return internal_error(e),
     };
     let Some(mix) = mix else {
@@ -161,6 +162,78 @@ async fn get_mix(State(state): State<SharedState>, AxPath(id): AxPath<i64>) -> R
         Ok(tracklist) => Json(json!({ "mix": mix, "tracklist": tracklist })).into_response(),
         Err(e) => internal_error(e),
     }
+}
+
+async fn delete_mix(State(state): State<SharedState>, AxPath(id): AxPath<i64>) -> Response {
+    let mut db = state.db.lock().await;
+    match db.delete_mix(id) {
+        Ok(true) => Json(json!({ "deleted": id })).into_response(),
+        Ok(false) => not_found(),
+        Err(e) => internal_error(e),
+    }
+}
+
+/// `GET /api/mixes/{id}/export?format=cue|csv|m3u` — downloadable tracklist.
+async fn export_mix(
+    State(state): State<SharedState>,
+    AxPath(id): AxPath<i64>,
+    Query(params): Query<HashMap<String, String>>,
+) -> Response {
+    let format = params.get("format").map(|s| s.as_str()).unwrap_or("cue");
+    let (body, ext, mime): (String, &str, &str) = {
+        let db = state.db.lock().await;
+        let mix = match db.get_mix(id) {
+            Ok(m) => m,
+            Err(e) => return internal_error(e),
+        };
+        let Some(mix) = mix else {
+            return not_found();
+        };
+        let tracklist = match db.mix_tracklist(id) {
+            Ok(t) => t,
+            Err(e) => return internal_error(e),
+        };
+        let file_name = Path::new(&mix.path)
+            .file_name()
+            .map(|s| s.to_string_lossy().to_string())
+            .unwrap_or_else(|| mix.title.clone());
+        match format.to_ascii_lowercase().as_str() {
+            "cue" => (
+                mixid_core::export::export_cue(&mix.title, &file_name, &tracklist),
+                "cue",
+                "text/plain; charset=utf-8",
+            ),
+            "csv" => (
+                mixid_core::export::export_csv(&mix.title, &tracklist),
+                "csv",
+                "text/csv; charset=utf-8",
+            ),
+            "m3u" => (
+                mixid_core::export::export_m3u(&mix.title, &tracklist),
+                "m3u",
+                "audio/x-mpegurl; charset=utf-8",
+            ),
+            other => {
+                return error_response(
+                    StatusCode::BAD_REQUEST,
+                    format!("unknown format {other:?} (use cue, csv or m3u)"),
+                )
+            }
+        }
+    };
+    let download = format!("mixid_{id}.{ext}");
+    (
+        [(header::CONTENT_TYPE, mime.to_string())],
+        [
+            (
+                header::CONTENT_DISPOSITION,
+                format!("attachment; filename=\"{download}\""),
+            ),
+            (header::CACHE_CONTROL, "no-store".to_string()),
+        ],
+        body,
+    )
+        .into_response()
 }
 
 async fn list_tracks(State(state): State<SharedState>) -> Response {

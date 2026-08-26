@@ -31,7 +31,8 @@ web server, and an Android app.
 
 Verified end-to-end on real music (4-track house mix built with ffmpeg
 crossfades): all 4 tracks detected, boundaries within seconds, decoy track
-correctly rejected. Synthetic regression test: `scripts/verify_test.py`.
+correctly rejected. The same mix transcoded to ogg/vorbis, mp3, and m4a/aac
+still detects all 4 tracks. Synthetic regression test: `scripts/verify_test.py`.
 
 ## Layout
 
@@ -61,9 +62,17 @@ cargo build --release
 # Browse
 ./target/release/mixid --db mixid.db mixes
 ./target/release/mixid --db mixid.db tracks
+
+# Export a tracklist (CUE sheet, CSV, or M3U) to stdout
+./target/release/mixid --db mixid.db export 1 --format cue > set.cue
+
+# Delete a mix or a library track by id
+./target/release/mixid --db mixid.db delete mix 1
+./target/release/mixid --db mixid.db delete track 7
 ```
 
-Filenames like `Artist - Title.ext` are split automatically.
+Filenames like `Artist - Title.ext` are split automatically. Supported
+formats: mp3, flac, wav, ogg/vorbis, m4a/aac, aiff.
 
 ## Web server
 
@@ -72,8 +81,10 @@ MIXID_DB=mixid.db ./target/release/mixid-server   # http://localhost:8900
 ```
 
 UI tabs: **Analyze** (upload a mix → tracklist), **Search** (song → mixes),
-**Mixes** (browse). REST API: `GET /api/mixes`, `/api/mixes/{id}`,
-`/api/tracks/search?q=`, `POST /api/analyze` (multipart file or JSON path).
+**Mixes** (browse, export as CUE/CSV/M3U, delete). REST API: `GET /api/mixes`,
+`/api/mixes/{id}`, `GET /api/mixes/{id}/export?format=cue|csv|m3u`,
+`DELETE /api/mixes/{id}`, `GET /api/tracks/search?q=`, `POST /api/analyze`
+(multipart file or JSON path).
 
 ## Android app
 
@@ -92,7 +103,8 @@ Install on the Redmi (HyperOS auto-denies plain `adb install`):
 ```
 
 On-device: Library tab → pick your music folder → index; Analyze tab → pick
-a mix file → tracklist. All local, no network.
+a mix file → tracklist; Mixes tab → open a mix → export CUE/CSV/M3U or delete
+it. All local, no network.
 
 ## Tuning knobs (crates/mixid-core/src/matcher.rs)
 

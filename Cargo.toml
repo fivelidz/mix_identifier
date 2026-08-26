@@ -9,7 +9,7 @@ edition = "2021"
 [workspace.dependencies]
 anyhow = "1"
 rusqlite = { version = "0.32", features = ["bundled"] }
-symphonia = { version = "0.5", features = ["mp3", "flac", "wav", "ogg", "isomp4", "aac", "pcm"] }
+symphonia = { version = "0.5", features = ["mp3", "flac", "wav", "ogg", "vorbis", "isomp4", "aac", "pcm", "aiff"] }
 rustfft = "6"
 
 [profile.release]

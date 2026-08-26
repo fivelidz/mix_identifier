@@ -130,6 +130,19 @@
   .mcard{cursor:pointer;transition:transform .15s,border-color .15s;margin-bottom:0}
   .mcard:hover{transform:translateY(-2px);border-color:rgba(255,85,0,.55)}
   .mcardmeta{margin:6px 0 4px}
+
+  /* mix detail actions (export / delete) */
+  .dactions{display:flex;align-items:center;gap:8px;margin:12px 0 4px}
+  .dactions .spacer{flex:1}
+  .dactions button.ghost{margin-bottom:0}
+  .exlink{
+    background:var(--card2);border:1px solid var(--border);border-radius:9px;color:var(--muted);
+    padding:8px 14px;font:inherit;font-weight:600;font-size:13px;letter-spacing:.6px;
+    text-decoration:none;transition:color .15s,border-color .15s;
+  }
+  .exlink:hover{color:var(--text);border-color:var(--accent)}
+  button.ghost.danger{color:var(--red)}
+  button.ghost.danger:hover{color:var(--red);border-color:var(--red)}
 </style>
 </head>
 <body>
@@ -398,11 +411,27 @@ async function openMix(id) {
         <div class="muted small" style="margin:4px 0 6px">${fmtTime(mix.duration)} ·
           ${tracklist.length} track${tracklist.length === 1 ? "" : "s"} ·
           added ${fmtDate(mix.added_at)}</div>
+        <div class="dactions">
+          <a class="exlink" href="/api/mixes/${encodeURIComponent(id)}/export?format=cue">CUE</a>
+          <a class="exlink" href="/api/mixes/${encodeURIComponent(id)}/export?format=csv">CSV</a>
+          <a class="exlink" href="/api/mixes/${encodeURIComponent(id)}/export?format=m3u">M3U</a>
+          <span class="spacer"></span>
+          <button class="ghost danger" id="del-btn">Delete</button>
+        </div>
         ${tracklistHTML(tracklist)}
       </div>`;
     $("#back-btn").addEventListener("click", () => {
       detail.hidden = true;
       $("#mixes-list").hidden = false;
+    });
+    $("#del-btn").addEventListener("click", async () => {
+      if (!confirm(`Delete “${mix.title || "Untitled mix"}”? This cannot be undone.`)) return;
+      try {
+        await api("/api/mixes/" + encodeURIComponent(id), { method: "DELETE" });
+        loadMixes(true);
+      } catch (e) {
+        alert(e.message);
+      }
     });
   } catch (e) {
     detail.innerHTML = `<div class="empty" style="color:var(--red)">${esc(e.message)}</div>`;

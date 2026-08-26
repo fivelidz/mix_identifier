@@ -73,12 +73,37 @@ fn list_mixes(state: State<DbState>) -> Result<Vec<MixRow>, String> {
 fn get_mix(id: i64, state: State<DbState>) -> Result<MixDetail, String> {
     state.with_db(|db| {
         let mix = db
-            .mixes()?
-            .into_iter()
-            .find(|m| m.id == id)
+            .get_mix(id)?
             .ok_or_else(|| anyhow::anyhow!("mix {id} not found"))?;
         let tracklist = db.mix_tracklist(id)?;
         Ok(MixDetail { mix, tracklist })
+    })
+}
+
+/// Delete a mix and its detections. Returns false if the id didn't exist.
+#[tauri::command]
+fn delete_mix(id: i64, state: State<DbState>) -> Result<bool, String> {
+    state.with_db(|db| db.delete_mix(id))
+}
+
+/// Export a mix tracklist as CUE / CSV / M3U text (frontend saves or shares it).
+#[tauri::command]
+fn export_mix(id: i64, format: String, state: State<DbState>) -> Result<String, String> {
+    state.with_db(|db| {
+        let mix = db
+            .get_mix(id)?
+            .ok_or_else(|| anyhow::anyhow!("mix {id} not found"))?;
+        let tracklist = db.mix_tracklist(id)?;
+        let file_name = Path::new(&mix.path)
+            .file_name()
+            .map(|s| s.to_string_lossy().to_string())
+            .unwrap_or_else(|| mix.title.clone());
+        match format.to_ascii_lowercase().as_str() {
+            "cue" => Ok(mixid_core::export::export_cue(&mix.title, &file_name, &tracklist)),
+            "csv" => Ok(mixid_core::export::export_csv(&mix.title, &tracklist)),
+            "m3u" => Ok(mixid_core::export::export_m3u(&mix.title, &tracklist)),
+            other => Err(anyhow::anyhow!("unknown format {other:?} (use cue, csv or m3u)")),
+        }
     })
 }
 
@@ -118,10 +143,7 @@ fn analyze_path(
 // Library indexing: walk a folder for audio files, fingerprint each, add to DB.
 // ---------------------------------------------------------------------------
 
-const AUDIO_EXTS: &[&str] = &[
-    "mp3", "wav", "flac", "m4a", "ogg", "oga", "opus", "aiff", "aif", "aac", "wma", "mp4",
-    "webm",
-];
+const AUDIO_EXTS: &[&str] = &["mp3", "wav", "flac", "m4a", "ogg", "oga", "aac", "aiff", "aif"];
 
 fn is_audio(p: &Path) -> bool {
     p.extension()
@@ -229,6 +251,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             list_mixes,
             get_mix,
+            delete_mix,
+            export_mix,
             search_tracks,
             analyze_path,
             index_folder

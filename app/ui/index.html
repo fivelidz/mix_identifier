@@ -239,6 +239,9 @@
     width: 34px; height: 34px; border-radius: 10px; cursor: pointer;
     display: flex; align-items: center; justify-content: center; flex-shrink: 0;
   }
+  .dactions { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 14px; }
+  .dactions .btn { min-height: 44px; font-size: 13px; letter-spacing: 1px; }
+  .btn-del { margin-top: 10px; margin-bottom: 16px; color: var(--bad); border-color: rgba(255, 84, 112, .4); }
 
   /* ---------- toast ---------- */
   #toast {
@@ -654,10 +657,61 @@ async function openMix(id) {
     const { mix, tracklist } = await invoke("get_mix", { id });
     $("detail-title").textContent = mix.title;
     $("detail-sub").textContent = `${fmtDur(mix.duration)} · ${tracklist.length} tracks · ${mix.added_at}`;
-    $("detail-body").innerHTML = tracklist.length
-      ? tracklistHTML(tracklist, mix.duration)
-      : `<div class="empty"><div class="big">🤷</div><h3>No detections stored</h3></div>`;
+    $("detail-body").innerHTML = `
+      ${tracklist.length
+        ? tracklistHTML(tracklist, mix.duration)
+        : `<div class="empty"><div class="big">🤷</div><h3>No detections stored</h3></div>`}
+      <div class="dactions">
+        <button class="btn btn-ghost dact" data-fmt="cue">CUE</button>
+        <button class="btn btn-ghost dact" data-fmt="csv">CSV</button>
+        <button class="btn btn-ghost dact" data-fmt="m3u">M3U</button>
+      </div>
+      <button class="btn btn-ghost btn-del" id="btn-del-mix">Delete mix</button>`;
+    $("detail-body").querySelectorAll(".dact").forEach(b => {
+      b.onclick = () => exportMix(id, b.dataset.fmt);
+    });
+    $("btn-del-mix").onclick = () => deleteMix(id);
     $("detail").classList.add("open");
+  } catch (e) { toast(String(e), true); }
+}
+
+// export the tracklist as cue/csv/m3u — download via blob anchor,
+// clipboard copy as fallback if the webview refuses the download.
+async function exportMix(id, fmt) {
+  let content;
+  try {
+    content = await invoke("export_mix", { id, format: fmt });
+  } catch (e) { toast(String(e), true); return; }
+  try {
+    const url = URL.createObjectURL(new Blob([content], { type: "text/plain" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `mixid_${id}.${fmt}`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    toast(`${fmt.toUpperCase()} exported 📄`);
+  } catch (e) {
+    try {
+      await navigator.clipboard.writeText(content);
+      toast(`${fmt.toUpperCase()} copied to clipboard`);
+    } catch (e2) { toast(String(e2), true); }
+  }
+}
+
+async function deleteMix(id) {
+  if (!confirm("Delete this mix? This cannot be undone.")) return;
+  try {
+    const ok = await invoke("delete_mix", { id });
+    if (!ok) { toast("Mix not found", true); return; }
+    $("detail").classList.remove("open");
+    document.querySelectorAll("nav button").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".tab-pane").forEach(p => p.classList.remove("active"));
+    document.querySelector('nav button[data-tab="mixes"]').classList.add("active");
+    $("pane-mixes").classList.add("active");
+    loadMixes();
+    toast("Mix deleted 🗑️");
   } catch (e) { toast(String(e), true); }
 }
 $("detail-back").onclick = () => $("detail").classList.remove("open");

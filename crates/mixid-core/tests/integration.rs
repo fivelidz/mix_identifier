@@ -324,3 +324,48 @@ fn test_db_roundtrip() {
     } // Db dropped -> connection closed
     let _ = std::fs::remove_file(&db_path); // best effort cleanup
 }
+
+#[test]
+fn test_get_and_delete() {
+    let fx = build_fixture("del");
+    let db_path = std::env::temp_dir().join(format!("mixid_test_del_{}.db", std::process::id()));
+    {
+        let mut db = Db::open(&db_path).unwrap();
+        let mut ids = Vec::new();
+        for (title, path) in fx.songs.iter().take(2) {
+            let (fp, dur) = fingerprint_file(path).unwrap();
+            ids.push(
+                db.add_track(title, "Artist X", &path.display().to_string(), dur, &fp)
+                    .unwrap(),
+            );
+        }
+        let mix_id = db
+            .add_mix("Del Mix", "/tmp/mixid_del_mix.wav", 36.0)
+            .unwrap();
+        db.add_detection(mix_id, ids[0], 0.0, 12.0, 0.9).unwrap();
+        db.add_detection(mix_id, ids[1], 12.0, 24.0, 0.8).unwrap();
+
+        // get_mix: by id, with path and detection count
+        let m = db.get_mix(mix_id).unwrap().expect("mix exists");
+        assert_eq!(m.title, "Del Mix");
+        assert_eq!(m.path, "/tmp/mixid_del_mix.wav");
+        assert_eq!(m.track_count, 2);
+        assert!(db.get_mix(9999).unwrap().is_none());
+
+        // delete_track cascades its detections but keeps the mix
+        assert!(db.delete_track(ids[0]).unwrap());
+        assert!(!db.delete_track(ids[0]).unwrap()); // already gone
+        assert_eq!(db.tracks().unwrap().len(), 1);
+        assert_eq!(db.mix_tracklist(mix_id).unwrap().len(), 1);
+        assert_eq!(db.get_mix(mix_id).unwrap().unwrap().track_count, 1);
+
+        // delete_mix removes it and its remaining detections
+        assert!(db.delete_mix(mix_id).unwrap());
+        assert!(!db.delete_mix(mix_id).unwrap()); // already gone
+        assert!(db.get_mix(mix_id).unwrap().is_none());
+        assert!(db.mixes().unwrap().is_empty());
+        // the surviving track's fingerprint is untouched
+        assert_eq!(db.all_track_fingerprints().unwrap().len(), 1);
+    }
+    let _ = std::fs::remove_file(&db_path); // best effort cleanup
+}

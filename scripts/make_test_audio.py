@@ -118,7 +118,16 @@ def synth_song(
         place(
             audio,
             s * step,
-            0.32 * note(f, step * 0.95, rng, vib_rate=vib_rate, partials=partials, attack=attack, decay=decay),
+            0.32
+            * note(
+                f,
+                step * 0.95,
+                rng,
+                vib_rate=vib_rate,
+                partials=partials,
+                attack=attack,
+                decay=decay,
+            ),
         )
 
     # --- arpeggio: 16ths on chord tones, higher octave, quieter ---
@@ -129,7 +138,16 @@ def synth_song(
         place(
             audio,
             s * astep,
-            0.10 * note(f, astep * 0.8, rng, vibrato=0.0, partials=partials, attack=attack, decay=decay),
+            0.10
+            * note(
+                f,
+                astep * 0.8,
+                rng,
+                vibrato=0.0,
+                partials=partials,
+                attack=attack,
+                decay=decay,
+            ),
         )
 
     # --- bass: root/fifth alternating on beats, low, odd partials ---
@@ -249,11 +267,21 @@ specs = {
 }
 
 os.makedirs(SONGS, exist_ok=True)
+
+
+def to_pcm16(x):
+    """Standard 16-bit PCM (float WAVs must be ±1.0; encoders clip otherwise)."""
+    peak = np.abs(x).max()
+    if peak > 0:
+        x = x / peak * 0.9  # headroom
+    return (x * 32767).astype(np.int16)
+
+
 audio = {}
 for name, spec in specs.items():
     a = synth_song(**spec)
     audio[name] = a
-    wavfile.write(os.path.join(SONGS, f"{name}.wav"), SR, a)
+    wavfile.write(os.path.join(SONGS, f"{name}.wav"), SR, to_pcm16(a))
     print(f"wrote {name}.wav ({DUR:.0f}s)")
 
 xf = int(XF * SR)
@@ -262,7 +290,7 @@ mix = crossfade(mix, audio["songB"], xf)
 mix = crossfade(mix, audio["songC"], xf)
 mix = crossfade(mix, audio["songD"], xf)
 mix_path = os.path.join(OUT, "mix.wav")
-wavfile.write(mix_path, SR, mix)
+wavfile.write(mix_path, SR, to_pcm16(mix))
 print(f"wrote mix.wav ({len(mix) / SR:.0f}s)")
 
 expected = [

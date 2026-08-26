@@ -5,6 +5,7 @@
 //! Matching: offset voting (dejavu-style) between mix and track fingerprints.
 
 pub mod db;
+pub mod export;
 pub mod fingerprint;
 pub mod matcher;
 pub mod names;
@@ -31,6 +32,7 @@ pub struct TrackRow {
 pub struct MixRow {
     pub id: i64,
     pub title: String,
+    pub path: String,
     pub duration: f64,
     pub added_at: String,
     pub track_count: i64,

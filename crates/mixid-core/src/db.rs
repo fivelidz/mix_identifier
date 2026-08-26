@@ -181,7 +181,7 @@ impl Db {
 
     pub fn mixes(&self) -> Result<Vec<MixRow>> {
         let mut stmt = self.0.prepare(
-            "SELECT m.id, m.title, m.duration, m.added_at, COUNT(d.id)
+            "SELECT m.id, m.title, m.path, m.duration, m.added_at, COUNT(d.id)
              FROM mixes m LEFT JOIN detections d ON d.mix_id = m.id
              GROUP BY m.id ORDER BY m.id DESC",
         )?;
@@ -189,12 +189,50 @@ impl Db {
             Ok(MixRow {
                 id: r.get(0)?,
                 title: r.get(1)?,
-                duration: r.get(2)?,
-                added_at: r.get(3)?,
-                track_count: r.get(4)?,
+                path: r.get(2)?,
+                duration: r.get(3)?,
+                added_at: r.get(4)?,
+                track_count: r.get(5)?,
             })
         })?;
         Ok(rows.collect::<std::result::Result<Vec<_>, _>>()?)
+    }
+
+    /// Fetch a single mix by id (with its detection count).
+    pub fn get_mix(&self, id: i64) -> Result<Option<MixRow>> {
+        let mut stmt = self.0.prepare(
+            "SELECT m.id, m.title, m.path, m.duration, m.added_at, COUNT(d.id)
+             FROM mixes m LEFT JOIN detections d ON d.mix_id = m.id
+             WHERE m.id = ?1 GROUP BY m.id",
+        )?;
+        let mut rows = stmt.query_map(params![id], |r| {
+            Ok(MixRow {
+                id: r.get(0)?,
+                title: r.get(1)?,
+                path: r.get(2)?,
+                duration: r.get(3)?,
+                added_at: r.get(4)?,
+                track_count: r.get(5)?,
+            })
+        })?;
+        Ok(rows.next().transpose()?)
+    }
+
+    /// Delete a mix and its detections. Returns false if the id didn't exist.
+    pub fn delete_mix(&mut self, id: i64) -> Result<bool> {
+        let n = self
+            .0
+            .execute("DELETE FROM mixes WHERE id = ?1", params![id])?;
+        Ok(n > 0)
+    }
+
+    /// Delete a track, its hashes, and any detections referencing it
+    /// (both cascade). Returns false if the id didn't exist.
+    pub fn delete_track(&mut self, id: i64) -> Result<bool> {
+        let n = self
+            .0
+            .execute("DELETE FROM tracks WHERE id = ?1", params![id])?;
+        Ok(n > 0)
     }
 
     pub fn mix_tracklist(&self, mix_id: i64) -> Result<Vec<DetectionRow>> {
